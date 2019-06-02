@@ -1,41 +1,74 @@
-import autograd_sparse as sp
-from autograd import elementwise_grad as egrad
 import os
 import autograd.numpy as np
-from autograd import grad, jacobian
+import scipy.sparse as sp
 from scipy.linalg import circulant
 from skimage.transform import radon, rescale
-from skimage.io import imread
-from numba import jit
+from scipy.sparse import csr_matrix,csc_matrix
+from cyt import csr_spmul,csc_spmul, csc_col
+import time
 
+#cyt.mwg(10,np.zeros((10,1)) )
+# def csr_spmul(Nrow,Ncol,data, indices, ptr, x):
+#     Nrow = ptr.shape[0]-1
+#     r  = np.zeros((Nrow,1))
+#     for i in range(0,Nrow):
+#         for j in range(ptr[i],ptr[i+1]):
+#             r[i] += data[j] * x[indices[j]]
+#
+#     return r
+#
+# def csc_spmul(Nrow,Ncol,data, indices, ptr, x):
+#     r  = np.zeros((Nrow,1))
+#     for i in range(0,Ncol):
+#         for j in range(ptr[i],ptr[i+1]):
+#             r[indices[j]] += data[j] * x[i]
+#
+#     return r
 
-@jit(nopython=True)
-def matrix(image, N_theta, N_r, dim):
+L = sp.eye(700000,700000,format="csc")
+y = 5*np.random.randn(700000,1)
+LL = csc_matrix(L)
+indices = LL.indices
+ptr = LL.indptr
+data = LL.data
+t = time.time()
+#q = csc_spmul(LL.shape[0],LL.shape[1],data,indices,ptr,y)
+q = csc_col(LL.shape[0],LL.shape[1],data,indices,ptr,3)
+print(time.time() - t)
+#print(q)
+t = time.time()
+qq = LL[:,3]
+print(time.time() - t)
+w = np.abs(qq-q)
+print(np.sum(w))
 
-    theta = np.linspace(0., 180., N_theta, endpoint=False)
-    flattened = np.reshape(image, (-1, 1))
-    g = "G"
-    fname = "radonmatrix/" + str(N_r) + "x" + str(N_theta) + ".npz"
-
-    if (not os.path.isfile(fname)):
-        M = np.zeros([N_r * N_theta, dim * dim])
-        empty = np.zeros([dim, dim])
-        for i in range(0, dim):
-            for j in range(0, dim):
-                empty[i, j] = 1
-                M[:, i * dim + j] = np.ravel(
-                    np.reshape(radon(empty, theta, circle=True), (N_r * N_theta, 1)))
-                empty[i, j] = 0
-        np.savez_compressed(fname, radonoperator=M)
-
-scale = 0.2
-image = imread("shepp.png", as_gray=True)
-image = rescale(image, scale=scale, mode='edge', multichannel=False)
-N_theta = 50
-theta = np.linspace(0., 180., N_theta, endpoint=False)
-(N_r, N_theta) = (radon(image, theta, circle=True)).shape
-(dim, dimx) = image.shape
-matrix(image,N_theta,N_r,dim)
+# @jit(nopython=True)
+# def matrix(image, N_theta, N_r, dim):
+#
+#     theta = np.linspace(0., 180., N_theta, endpoint=False)
+#     flattened = np.reshape(image, (-1, 1))
+#     g = "G"
+#     fname = "radonmatrix/" + str(N_r) + "x" + str(N_theta) + ".npz"
+#
+#     if (not os.path.isfile(fname)):
+#         M = np.zeros([N_r * N_theta, dim * dim])
+#         empty = np.zeros([dim, dim])
+#         for i in range(0, dim):
+#             for j in range(0, dim):
+#                 empty[i, j] = 1
+#                 M[:, i * dim + j] = np.ravel(
+#                     np.reshape(radon(empty, theta, circle=True), (N_r * N_theta, 1)))
+#                 empty[i, j] = 0
+#         np.savez_compressed(fname, radonoperator=M)
+#
+# scale = 0.2
+# image = imread("shepp.png", as_gray=True)
+# image = rescale(image, scale=scale, mode='edge', multichannel=False)
+# N_theta = 50
+# theta = np.linspace(0., 180., N_theta, endpoint=False)
+# (N_r, N_theta) = (radon(image, theta, circle=True)).shape
+# (dim, dimx) = image.shape
+# matrix(image,N_theta,N_r,dim)
 # d = 11
 # x0= 1+ 0.05*np.random.randn(11 , 1)
 # regoperator = circulant(np.block([[2], [-1] , [np.zeros((11 - 3, 1))], [-1]]))
