@@ -5,6 +5,7 @@ import autograd.numpy as np
 import warnings
 from autograd import grad
 from scipy.linalg import circulant
+from scipy.sparse import csr_matrix,csc_matrix,lil_matrix
 from scipy.optimize import  minimize
 import time
 import os
@@ -23,21 +24,23 @@ class tomography:
         self.theta = np.linspace(0., 180., ntheta, endpoint=False)
         self.flattened = np.reshape(self.image, (-1, 1))
         (self.N_r, self.N_theta) = (self.radonww(self.image, self.theta, circle=True)).shape
-        fname = 'radonmatrix/'+str(self.N_r) + 'x' + str(self.N_theta) + '.npz'
+        fname = 'radonmatrix/'+'0_180-' + str(self.N_r) + 'x' + str(self.N_theta) + '.npz'
 
         if (not os.path.isfile(fname)):
-            M = np.zeros([self.N_r * self.N_theta, self.dim * self.dim])
-            self.empty = np.zeros([self.dim, self.dim])
+            # Mf = np.zeros([N_r * N_theta, dim * dim])
+            M = lil_matrix((self.N_r * self.N_theta, self.dim * self.dim))
+            empty = np.zeros([self.dim, self.dim])
             for i in range(0, self.dim):
                 for j in range(0, self.dim):
-                    self.empty[i, j] = 1
-                    M[:, i * self.dim + j] = np.ravel(np.reshape(self.radonww(self.empty, self.theta, circle=True), (self.N_r * self.N_theta, 1)))
-                    self.empty[i, j] = 0
-            np.savez_compressed(fname, radonoperator=M)
+                    empty[i, j] = 1
+                    ww = np.ravel(np.reshape(radon(empty, self.theta, circle=True), (self.N_r * self.N_theta, 1)))
+                    M[:, i * self.dim + j] = np.reshape(radon(empty, self.theta, circle=True), (self.N_r * self.N_theta, 1))
+                    empty[i, j] = 0
+            sp.save_npz(fname,M)
 
-        loaded =np.load(fname)
-        self.radonoperator = loaded['radonoperator']
-        loaded.close()
+        self.radonoperator =sp.load_npz(fname)
+        #self.radonoperator = loaded['radonoperator']
+        #loaded.close()
 
         self.measurement = np.exp(-self.radonoperator @ self.flattened) + noise * np.random.randn(self.N_r * self.N_theta, 1)
         self.lines = -np.log(self.measurement)

@@ -1,9 +1,10 @@
 from skimage.io import imread
-import autograd_sparse as sp
+import scipy.sparse as sp
 from skimage.transform import radon, rescale
 import numpy as np
 from scipy.sparse import csr_matrix,csc_matrix
 from autograd import grad
+import scipy
 from scipy.linalg import circulant
 from scipy.optimize import  minimize
 from line_profiler import LineProfiler
@@ -14,69 +15,7 @@ from cyt import mwg
 from numba import jit
 #@jit(nopython=True)
 #@profile
-# def mwg(N,y):
-#     dim = y.shape[0]
-#     np.random.seed(1)
-#     x = np.copy(y)#np.zeros((dim,1))
-#     #C = 5*np.eye(dim)
-#     C = 5
-#     alpha = 10
-#     #Ci = np.linalg.inv(C)
-#     Ci = 1/C
-#     L = circulant(np.block([[-1], [0], [np.zeros((dim - 3, 1))], [1]]))
-#     L = csc_matrix(L)
-#     M = np.eye(dim,dim)
-#     M = csc_matrix(M)
-#     def pdf(x):
-#         #return np.ravel(np.exp(-Ci * (M @ x - y).T @ (M @ x - y)))
-#         return np.ravel(np.exp( -Ci*(M @ x - y).T  @ (M @ x - y)))*np.ravel(np.exp(-alpha*np.sum(np.abs(L@x))))
-#     #return np.ravel(np.exp(-1.0 / 2.0 * (M@x-y).T @ Ci @ (M@x-y)))
-#
-#     #w=pdf(-4*np.ones((30,1)))
-#     sigma = 1
-#     beta = 0.3
-#     chain = np.zeros((dim, N))
-#     chain2 = np.zeros((dim, N))
-#     chain[:,0] = np.ravel(x)
-#     chain2[:,0] = np.ravel(x)
-#     acc = 0
-#     xc = np.copy(x)
-#     w = sp.dot(M,x)
-#     w2 = sp.dot(L,x)
-#     value = np.exp(-(w-y).T@(w-y)*Ci)
-#     value2 = np.exp(-alpha*np.sum(np.abs(L@x)))
-#
-#     #numer = 0
-#     for i in range(1,N):
-#         for j in range(0,dim):
-#
-#             pr = np.sqrt(1-beta**2.0)*x[j,0] + beta*sigma*sigma*np.random.randn(1,1)
-#             rg = M[:,j]
-#             change = np.reshape(M[:,j]*(np.ravel(pr-x[j,0])),(-1,1))
-#             change2 = np.reshape(L[:,j]*(np.ravel(pr-x[j,0])),(-1,1))
-#             #newvalue=np.exp((change-y+w).T@(change-y+w)*Ci*-1/2)
-#             newvalue = np.ravel(np.exp((change - y + w).T @ (change - y + w) * -Ci))
-#             newvalue2 = np.exp(-alpha*np.sum(np.abs(change2+w2)))
-#             ratio2 = newvalue*newvalue2/(value*value2)
-#             xc[j,0] = pr
-#             #ratio = pdf(xc)/pdf(x)
-#             if (np.random.rand(1) <= ratio2):
-#                 x[j,0] = pr#xc[j,0]
-#                 w = w+ change
-#                 w2 = w2+change2
-#                 value = newvalue
-#                 #e = pdf(x)
-#                 value2 = newvalue2
-#                 acc = acc +1
-#             else:
-#                 #pass
-#                 xc[j,0] = x[j,0]
-#
-#         #numer = numer + x
-#         chain[:,i] = np.ravel(x)
-#     print(acc/(N*dim))
-#     #print(numer/N)
-#     return  chain
+
 
 def hmc(N,x):
     dim = x.shape[0]
@@ -114,7 +53,81 @@ def hmc(N,x):
     print(numer / N)
     return chain
 
+
+M = sp.eye(700000,format="csc") #+ np.array([[0,4.9,0],[4.9,0,0],[0,0,0]])
+#M = sp.linalg.inv(M)
+#R = sp.linalg.cholesky(M)
+#R = R.T
+R = M
+#Q = np.eye(3)
+
+def pdf(x):
+    #return np.exp(-1/2*x.T@Q@x)
+    #return np.exp(-1/2*np.sum(np.power(R@x,2)))
+    return np.exp(-1/2*(R@x).T@(R@x))
+    #return np.exp(-1/2*x.T@M@x)
+
+def koe(N,y):
+    np.random.seed(1)
+    dim = y.shape[0]
+    x = np.zeros((dim,1))
+    #C = 5*np.eye(dim)
+    C = 1
+    alpha = 1
+    #Ci = np.linalg.inv(C)
+    Ci = 1/C
+    #w=pdf(-4*np.ones((30,1)))
+    sigma = 1
+    beta = 0.3
+    chain = np.zeros((dim, N))
+    chain2 = np.zeros((dim, N))
+    chain[:,0] = np.ravel(x)
+    chain2[:,0] = np.ravel(x)
+    acc = 0
+    xc = np.copy(x)
+
+    #numer = 0
+    for i in range(1,N):
+        randoms = np.random.randn(dim, )
+        accept = np.random.rand(dim, )
+
+        for j in range(0,dim):
+
+            pr = np.sqrt(1-beta**2.0)*x[j,0] + beta*sigma*sigma*randoms[j]
+            #pr = x[j,0] + sigma*randoms[j]
+            #print(pr)
+            # rg = M[:,j]
+            # change = np.reshape(M[:,j]*(np.ravel(pr-x[j,0])),(-1,1))
+            # change2 = np.reshape(L[:,j]*(np.ravel(pr-x[j,0])),(-1,1))
+            # #newvalue=np.exp((change-y+w).T@(change-y+w)*Ci*-1/2)
+            # newvalue = np.ravel(np.exp((change - y + w).T @ (change - y + w) * -Ci))
+            # newvalue2 = np.exp(-alpha*np.sum(np.abs(change2+w2)))
+            # ratio2 = newvalue*newvalue2/(value*value2)
+            xc[j,0] = pr
+            ratio = pdf(xc)/pdf(x)
+            chain2[j, i] = ratio
+            if (accept[j] <= ratio):
+                x[j,0] = pr#xc[j,0]
+                # w = w+ change
+                # w2 = w2+change2
+                # value = newvalue
+                #e = pdf(x)
+                # value2 = newvalue2
+                #chain[j,i] = pr
+                acc = acc +1
+            else:
+                #chain[j, i] = x[j,0]
+                #pass
+                xc[j,0] = x[j,0]
+
+        #numer = numer + x
+        chain[:,i] = np.ravel(x)
+    #print(acc/(N*dim))
+    #print(numer/N)
+    return  chain
+
 def am(N,x):
+    print(pdf(x))
     dim = x.shape[0]
     C = np.eye(dim)
     R = np.linalg.cholesky(C)
@@ -176,15 +189,22 @@ def pdf2(x):
 #w = am(500,x)
 # print(t-time.time())
 t = time.time()
-M = np.eye(3,3)
-Lx = np.zeros((3,3))
-Ly = np.zeros((3,3))
-y = 4*np.ones((3,1))
-x0 =np.zeros((3,1))
-c = mwg(M,Lx,Ly,y,x0,50000,regalpha=1, samplebeta=0.5, sampsigma=2,lhsigma=1)
+
+Lx = sp.eye(1,700000)
+Ly = sp.eye(1,700000)
+y = 4*np.zeros((700000,1))
+x0 = np.zeros((700000,1))
+print(np.sum(np.power(R@y,2)))
+print(np.sum(y.T@M@y))
+#c = am(5,x0)
+#c = koe(1009,y)
+print("----")
+c = mwg(R,Lx,Ly,y,x0,20 ,regalpha=1, samplebeta=0.1, sampsigma=5.0,lhsigma=1.0)
 #print(c)
-#print("")
+#qq = w-c
 print(t-time.time())
 plt.plot(c[0,:],c[1,:],'r*')
+#print(np.cov(c))
+#print(np.mean(c,axis=1))
 #plt.plot(w[0,:],w[1,:],'b*')
 plt.show()

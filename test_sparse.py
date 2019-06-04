@@ -1,11 +1,53 @@
 import os
-import autograd.numpy as np
+import numpy as np
 import scipy.sparse as sp
 from scipy.linalg import circulant
 from skimage.transform import radon, rescale
-from scipy.sparse import csr_matrix,csc_matrix
+from scipy.sparse import csr_matrix,csc_matrix,lil_matrix
 from cyt import csr_spmul,csc_spmul, csc_col
 import time
+from skimage.io import imread
+import matplotlib.pyplot as plt
+
+# K = lil_matrix((5,5))
+# K[:,1] = np.array([[1,1,1,1,1]]).T
+# exit(1)
+
+sca = [0.5]
+nth = [10,25,50]
+for scaling in sca:
+    for ntheta in nth:
+        filename = "shepp.png"
+        image = imread(filename, as_gray=True)
+        image = rescale(image, scale=scaling, mode='edge', multichannel=False)
+        (dim, dimx) = image.shape
+        if (dim != dimx):
+            raise Exception('Image is not rectangular.')
+        theta = np.linspace(0., 180., ntheta, endpoint=False)
+        flattened = np.reshape(image, (-1, 1))
+        (N_r, N_theta) = (radon(image, theta, circle=True)).shape
+        fname = 'radonmatrix/'+ '0_180-' +str(N_r) + 'x' + str(N_theta) + '.npz'
+
+        if (not os.path.isfile(fname)):
+            #Mf = np.zeros([N_r * N_theta, dim * dim])
+            M = lil_matrix((N_r*N_theta,dim*dim))
+            empty = np.zeros([dim, dim])
+            for i in range(0, dim):
+                for j in range(0, dim):
+                    empty[i, j] = 1
+                    ww=np.ravel(np.reshape(radon(empty, theta, circle=True), (N_r * N_theta, 1)))
+                    M[:, i * dim + j] = np.reshape(radon(empty, theta, circle=True), (N_r * N_theta, 1))
+                    empty[i, j] = 0
+            # qq = np.reshape(M@flattened,(N_r,N_theta))
+            # plt.imshow(qq)
+            # plt.figure()
+            # plt.imshow(radon(image, theta, circle=True))
+            # plt.show()
+            # exit(1)
+            # print(fname)
+            M = csc_matrix(M)
+            sp.save_npz(fname,M)
+            #np.savez_compressed(fname, radonoperator=M)
 
 #cyt.mwg(10,np.zeros((10,1)) )
 # def csr_spmul(Nrow,Ncol,data, indices, ptr, x):
@@ -25,22 +67,22 @@ import time
 #
 #     return r
 
-L = sp.eye(700000,700000,format="csc")
-y = 5*np.random.randn(700000,1)
-LL = csc_matrix(L)
-indices = LL.indices
-ptr = LL.indptr
-data = LL.data
-t = time.time()
-#q = csc_spmul(LL.shape[0],LL.shape[1],data,indices,ptr,y)
-q = csc_col(LL.shape[0],LL.shape[1],data,indices,ptr,3)
-print(time.time() - t)
-#print(q)
-t = time.time()
-qq = LL[:,3]
-print(time.time() - t)
-w = np.abs(qq-q)
-print(np.sum(w))
+# L = sp.eye(700000,700000,format="csc")
+# y = 5*np.random.randn(700000,1)
+# LL = csc_matrix(L)
+# indices = LL.indices
+# ptr = LL.indptr
+# data = LL.data
+# t = time.time()
+# #q = csc_spmul(LL.shape[0],LL.shape[1],data,indices,ptr,y)
+# q = csc_col(LL.shape[0],LL.shape[1],data,indices,ptr,3)
+# print(time.time() - t)
+# #print(q)
+# t = time.time()
+# qq = LL[:,3]
+# print(time.time() - t)
+# w = np.abs(qq-q)
+# print(np.sum(w))
 
 # @jit(nopython=True)
 # def matrix(image, N_theta, N_r, dim):
