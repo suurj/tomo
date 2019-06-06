@@ -4,17 +4,60 @@ import scipy.sparse as sp
 from scipy.linalg import circulant
 from skimage.transform import radon, rescale
 from scipy.sparse import csr_matrix,csc_matrix,lil_matrix
-from cyt import csr_spmul,csc_spmul, csc_col
+from cyt import csr_spmul,csc_spmul, csc_col, gs
 import time
 from skimage.io import imread
 import matplotlib.pyplot as plt
-
+from skimage.transform import iradon_sart
+import scipy.io
 # K = lil_matrix((5,5))
 # K[:,1] = np.array([[1,1,1,1,1]]).T
 # exit(1)
 
-sca = [0.5]
-nth = [10,25,50]
+# T = 179
+# R = 145
+# M = np.zeros((R,T))
+# print(gs(1.0,np.pi/4))
+# t = np.linspace(0,np.pi,T,endpoint=True)
+# r = np.linspace(-2.0,2.0,R,endpoint=True)
+# tt = time.time()
+# for i in range(0,R):
+#     for j in range(0,T):
+#         M[i, j] = gs(r[i], t[j])
+#
+# print(time.time()-tt)
+# plt.imshow(M)
+# plt.show()
+# exit(0)
+
+fname = 'radonmatrix/'+ 'full-' +str(81) + 'x' + str(10) + '.npz'
+#M = sp.load_npz(fname)
+M = scipy.io.loadmat('k.mat')
+r = scipy.io.loadmat('r.mat')
+M = M['A']
+r = r['r']
+T = 30
+kk = M@r
+#M = M.toarray()
+kk = np.reshape(kk,(109,T))
+r = np.reshape(r,(77,77))
+#scipy.io.savemat('arr.mat', mdict={'arr': M})
+#image = imread("shepp.png", as_gray=True)
+#image = rescale(image, scale=0.1, mode='edge', multichannel=False)
+l =  np.linspace(0, 179, num=T, endpoint=True)
+R = radon(r,l,circle=False)
+
+#o = radon(image,l,circle=False)
+o = iradon_sart(R,l)
+koe = iradon_sart(kk,l)
+plt.imshow(o)
+plt.figure()
+plt.imshow(koe)
+plt.show()
+exit(1)
+
+sca = [0.1]
+nth = [10]
 for scaling in sca:
     for ntheta in nth:
         filename = "shepp.png"
@@ -23,10 +66,10 @@ for scaling in sca:
         (dim, dimx) = image.shape
         if (dim != dimx):
             raise Exception('Image is not rectangular.')
-        theta = np.linspace(0., 180., ntheta, endpoint=False)
+        theta = np.linspace(0., 179., ntheta, endpoint=True)
         flattened = np.reshape(image, (-1, 1))
-        (N_r, N_theta) = (radon(image, theta, circle=True)).shape
-        fname = 'radonmatrix/'+ '0_180-' +str(N_r) + 'x' + str(N_theta) + '.npz'
+        (N_r, N_theta) = (radon(image, theta, circle=False)).shape
+        fname = 'radonmatrix/'+ 'full-' +str(N_r) + 'x' + str(N_theta) + '.npz'
 
         if (not os.path.isfile(fname)):
             #Mf = np.zeros([N_r * N_theta, dim * dim])
@@ -35,8 +78,8 @@ for scaling in sca:
             for i in range(0, dim):
                 for j in range(0, dim):
                     empty[i, j] = 1
-                    ww=np.ravel(np.reshape(radon(empty, theta, circle=True), (N_r * N_theta, 1)))
-                    M[:, i * dim + j] = np.reshape(radon(empty, theta, circle=True), (N_r * N_theta, 1))
+                    #ww=np.ravel(np.reshape(radon(empty, theta, circle=False), (N_r * N_theta, 1)))
+                    M[:, i * dim + j] = np.reshape(radon(empty, theta, circle=False), (N_r * N_theta, 1))
                     empty[i, j] = 0
             # qq = np.reshape(M@flattened,(N_r,N_theta))
             # plt.imshow(qq)

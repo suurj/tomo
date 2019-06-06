@@ -5,7 +5,60 @@ import scipy.sparse as sp
 from cython.parallel import prange
 from scipy.linalg import circulant
 from scipy.sparse import csr_matrix,csc_matrix
-from libc.math cimport sqrt,fabs,exp
+from libc.math cimport sqrt,fabs,exp, cos, tan,sin,M_SQRT2,M_PI
+
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+@cython.cdivision(True) 
+def  gs(double p,double t):
+    #cdef double pi = np.pi
+    #cdef double sqrt2 = np.sqrt(2.0)
+    cdef double x1m
+    cdef double x1
+    cdef double y1
+    if (p<0):
+       p = -p
+   
+    t = (t%(M_PI/2.0))
+    if(t >= M_PI/4.0):
+        t = M_PI/2.0-t
+  
+    #if (t > pi/2)
+    #    t = pi/2 - mod(t,pi/4);
+    #end
+    
+    if( p > M_SQRT2):
+        a = 0
+        return a
+    else:
+        x1m = p/cos(t) + tan(t)
+        x1 = p/cos(t) - tan(t)
+        y1 = p/sin(t) - 1.0/tan(t)
+        
+   
+        if (x1 < 1.0 and x1m  < 1.0):
+            #a = 2/cos(t);
+            a = sqrt(4.0+(x1-x1m)**2.0)
+            return a
+            #disp("TOO")
+            
+        elif (x1 < 1.0 and x1m  > 1.0):
+            a = sqrt((1.0-x1)**2.0 + (1.0-y1)**2.0)
+            return a
+            #disp('RRR')
+            
+        elif (x1 >=1.0):
+            a = 0.0
+            return a
+            
+        else:
+            return -9.0
+        
+        
+     
+    #a = abs(a);
+    #a = min(a,3);
+
 
 
 def csr_spmul(int Nrow,int Ncol,np.ndarray[np.double_t] data, np.ndarray[int] indices,np.ndarray[int] ptr, np.ndarray[np.double_t, ndim=2] x):
