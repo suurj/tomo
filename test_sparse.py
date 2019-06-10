@@ -29,82 +29,84 @@ import scipy.io
 # print(time.time()-tt)
 # plt.imshow(M)
 # plt.show()
-N = 77
-T = 100
-R = math.ceil(math.sqrt(2)*N)
-th = np.linspace(0, 179, T,endpoint=True)
-th_rad = th/360*2*np.pi
-# d = np.array([2,3,4])
-# c = np.array([0,1,0.0])
-# r = np.array([1,0,0])
-# M = coo_matrix((d, (r, c)), shape=(2,2))
+# N = 77
+# T = 100
+# R = math.ceil(math.sqrt(2)*N)
+# th = np.linspace(0, 179, T,endpoint=True)
+# th_rad = th/360*2*np.pi
+# # d = np.array([2,3,4])
+# # c = np.array([0,1,0.0])
+# # r = np.array([1,0,0])
+# # M = coo_matrix((d, (r, c)), shape=(2,2))
+#
+# B = radonmatrix(N,th_rad)
+# B = B.toarray()
+# #M = coo_matrix((d, (r, c)), shape=(R*T,N*N))
+# #M = csc_matrix(M)
+# #exit(0)
+# print('F')
+# #fname = 'radonmatrix/'+ 'full-' +str(81) + 'x' + str(10) + '.npz'
+# #M = sp.load_npz(fname)
+# M = scipy.io.loadmat('k.mat')
+# r = scipy.io.loadmat('r.mat')
+# M = M['A']
+# r = r['r']
+#
+# kk = B@r
+# # jj = M@r
+# #M = M.toarray()
+# kk = np.reshape(kk,(R,T))
+# # jj = np.reshape(jj,(R,T))
+# r = np.reshape(r,(N,N))
+# #scipy.io.savemat('arr.mat', mdict={'arr': M})
+# #image = imread("shepp.png", as_gray=True)
+# #image = rescale(image, scale=0.1, mode='edge', multichannel=False)
+# R = radon(r,th,circle=False)
+#
+# #o = radon(image,l,circle=False)
+# o = iradon_sart(R,th)
+# koe = iradon_sart(kk,th)
+# plt.imshow(o)
+# plt.figure()
+# plt.imshow(koe)
+# plt.show()
+# exit(0)
 
-B = radonmatrix(N,th_rad)
-B = B.toarray()
-#M = coo_matrix((d, (r, c)), shape=(R*T,N*N))
-#M = csc_matrix(M)
-#exit(0)
-
-#fname = 'radonmatrix/'+ 'full-' +str(81) + 'x' + str(10) + '.npz'
-#M = sp.load_npz(fname)
-M = scipy.io.loadmat('k.mat')
-r = scipy.io.loadmat('r.mat')
-M = M['A']
-r = r['r']
-
-kk = B@r
-# jj = M@r
-#M = M.toarray()
-kk = np.reshape(kk,(R,T))
-# jj = np.reshape(jj,(R,T))
-r = np.reshape(r,(N,N))
-#scipy.io.savemat('arr.mat', mdict={'arr': M})
-#image = imread("shepp.png", as_gray=True)
-#image = rescale(image, scale=0.1, mode='edge', multichannel=False)
-R = radon(r,th,circle=False)
-
-#o = radon(image,l,circle=False)
-o = iradon_sart(R,th)
-koe = iradon_sart(kk,th)
-plt.imshow(o)
-plt.figure()
-plt.imshow(koe)
-plt.show()
-exit(0)
-
-sca = [0.1]
-nth = [10]
+sca = [1.0 ]
+nth = [50]
 for scaling in sca:
-    for ntheta in nth:
+    for N_theta in nth:
         filename = "shepp.png"
         image = imread(filename, as_gray=True)
         image = rescale(image, scale=scaling, mode='edge', multichannel=False)
         (dim, dimx) = image.shape
         if (dim != dimx):
             raise Exception('Image is not rectangular.')
-        theta = np.linspace(0., 179., ntheta, endpoint=True)
+        N_r = math.ceil(math.sqrt(2) * dim)
+        theta = np.linspace(0., 179., N_theta, endpoint=True)
         flattened = np.reshape(image, (-1, 1))
-        (N_r, N_theta) = (radon(image, theta, circle=False)).shape
-        fname = 'radonmatrix/'+ 'full-' +str(N_r) + 'x' + str(N_theta) + '.npz'
+        #(N_r, N_theta) = (radon(image, theta, circle=False)).shape
+        fname = 'radonmatrix/'+ 'full-' +str(dim) + 'x' + str(N_theta) + '.npz'
 
         if (not os.path.isfile(fname)):
             #Mf = np.zeros([N_r * N_theta, dim * dim])
-            M = lil_matrix((N_r*N_theta,dim*dim))
-            empty = np.zeros([dim, dim])
-            for i in range(0, dim):
-                for j in range(0, dim):
-                    empty[i, j] = 1
-                    #ww=np.ravel(np.reshape(radon(empty, theta, circle=False), (N_r * N_theta, 1)))
-                    M[:, i * dim + j] = np.reshape(radon(empty, theta, circle=False), (N_r * N_theta, 1))
-                    empty[i, j] = 0
-            # qq = np.reshape(M@flattened,(N_r,N_theta))
-            # plt.imshow(qq)
-            # plt.figure()
-            # plt.imshow(radon(image, theta, circle=True))
-            # plt.show()
-            # exit(1)
-            # print(fname)
-            M = csc_matrix(M)
+            M = radonmatrix(dim,theta)
+            # M = lil_matrix((N_r*N_theta,dim*dim))
+            # empty = np.zeros([dim, dim])
+            # for i in range(0, dim):
+            #     for j in range(0, dim):
+            #         empty[i, j] = 1
+            #         #ww=np.ravel(np.reshape(radon(empty, theta, circle=False), (N_r * N_theta, 1)))
+            #         M[:, i * dim + j] = np.reshape(radon(empty, theta, circle=False), (N_r * N_theta, 1))
+            #         empty[i, j] = 0
+            # # qq = np.reshape(M@flattened,(N_r,N_theta))
+            # # plt.imshow(qq)
+            # # plt.figure()
+            # # plt.imshow(radon(image, theta, circle=True))
+            # # plt.show()
+            # # exit(1)
+            print(fname)
+            # M = csc_matrix(M)
             sp.save_npz(fname,M)
             #np.savez_compressed(fname, radonoperator=M)
 
