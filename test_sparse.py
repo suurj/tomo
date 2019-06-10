@@ -3,8 +3,9 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.linalg import circulant
 from skimage.transform import radon, rescale
-from scipy.sparse import csr_matrix,csc_matrix,lil_matrix
-from cyt import csr_spmul,csc_spmul, csc_col, gs
+from scipy.sparse import csr_matrix,csc_matrix,lil_matrix, coo_matrix, dok_matrix
+from cyt import  radonmatrix
+import math
 import time
 from skimage.io import imread
 import matplotlib.pyplot as plt
@@ -28,33 +29,48 @@ import scipy.io
 # print(time.time()-tt)
 # plt.imshow(M)
 # plt.show()
-# exit(0)
+N = 77
+T = 100
+R = math.ceil(math.sqrt(2)*N)
+th = np.linspace(0, 179, T,endpoint=True)
+th_rad = th/360*2*np.pi
+# d = np.array([2,3,4])
+# c = np.array([0,1,0.0])
+# r = np.array([1,0,0])
+# M = coo_matrix((d, (r, c)), shape=(2,2))
 
-fname = 'radonmatrix/'+ 'full-' +str(81) + 'x' + str(10) + '.npz'
+B = radonmatrix(N,th_rad)
+B = B.toarray()
+#M = coo_matrix((d, (r, c)), shape=(R*T,N*N))
+#M = csc_matrix(M)
+#exit(0)
+
+#fname = 'radonmatrix/'+ 'full-' +str(81) + 'x' + str(10) + '.npz'
 #M = sp.load_npz(fname)
 M = scipy.io.loadmat('k.mat')
 r = scipy.io.loadmat('r.mat')
 M = M['A']
 r = r['r']
-T = 30
-kk = M@r
+
+kk = B@r
+# jj = M@r
 #M = M.toarray()
-kk = np.reshape(kk,(109,T))
-r = np.reshape(r,(77,77))
+kk = np.reshape(kk,(R,T))
+# jj = np.reshape(jj,(R,T))
+r = np.reshape(r,(N,N))
 #scipy.io.savemat('arr.mat', mdict={'arr': M})
 #image = imread("shepp.png", as_gray=True)
 #image = rescale(image, scale=0.1, mode='edge', multichannel=False)
-l =  np.linspace(0, 179, num=T, endpoint=True)
-R = radon(r,l,circle=False)
+R = radon(r,th,circle=False)
 
 #o = radon(image,l,circle=False)
-o = iradon_sart(R,l)
-koe = iradon_sart(kk,l)
+o = iradon_sart(R,th)
+koe = iradon_sart(kk,th)
 plt.imshow(o)
 plt.figure()
 plt.imshow(koe)
 plt.show()
-exit(1)
+exit(0)
 
 sca = [0.1]
 nth = [10]

@@ -4,13 +4,108 @@ cimport cython
 import scipy.sparse as sp
 from cython.parallel import prange
 from scipy.linalg import circulant
-from scipy.sparse import csr_matrix,csc_matrix
-from libc.math cimport sqrt,fabs,exp, cos, tan,sin,M_SQRT2,M_PI
+from scipy.sparse import csr_matrix,csc_matrix,coo_matrix
+import math
+from libc.math cimport sqrt,fabs,exp, cos, tan,sin,M_SQRT2,M_PI,abs
+from libcpp.list cimport list as cpplist
+import time
+
+@cython.boundscheck(False) 
+#@cython.wraparound(False)
+@cython.cdivision(True) 
+def  radonmatrix(size,theta):
+    cdef cpplist[int] row
+    cdef cpplist[int] col
+    cdef cpplist[double] data
+    
+    cdef int T = theta.shape[0]
+    cdef int N = size
+    cdef double dx = 1
+    cdef double dy = 1 
+    cdef int M = N
+    cdef int R = math.ceil(M_SQRT2*N)
+    #cdef int R = Rr
+    cdef double xmin = -(N-1.0)/2.0
+    cdef double dp = 2.0*M_SQRT2*abs(xmin)/(R-1.0)
+    cdef double pmin = -(R-1.0)/2.0*dp
+    cdef double tmin = theta[0]
+    cdef double ymin = xmin
+    cdef double pmax = (R-1.0)/2.0*dp
+    cdef double tmax = theta[-1]
+    cdef double tt,ray,dt
+    cdef int t,m,n,r,i
+    if (T == 1):
+        dt = 0
+    else:
+        dt = theta[1]-theta[0]
+    
+    start = time.time()
+    with nogil:                     
+        for r in range (0,R):
+            for t in range (0,T):
+                tt = tmax - t*dt
+                for n in range (0,N):
+                    for m in range( 0,M):
+                        #psi = pi/dx*(pmin+r*dp-(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt))
+                        #A(r*T + t+1, n*M+m+1) = dx/2 * g(2*(pmin+r*dp -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
+                        #ray = dx/2.0 * gs(2.0*(pmax-r*dp -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
+                        ray = dx/2.0 * gs(2.0*(pmax-r*dp+dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
+                        ray = ray + dx/2.0 * gs(2.0*(pmax-r*dp+dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
+                        ray = ray + dx/2.0 * gs(2.0*(pmax-r*dp-dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
+                        ray = ray + dx/2.0 * gs(2.0*(pmax-r*dp-dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
+                        ray = ray/4.0
+                        if(ray > 0.0):
+                            row.push_back(r*T+t)
+                            col.push_back(n*M+m)
+                            data.push_back(ray)
+                    #A(r*T + t+1, n*M+m+1) = 
+
+            
+    print(time.time()-start)     
+     
+                     
+
+    #push_back = temp.push_back
+    #for x in range(5):
+    #    row.push_back(x)
+    #    col.push_back(x+1)
+    #    data.push_back(2.0)
+
+    cdef int Nel = row.size()
+    coo_row  = np.zeros((Nel,),dtype=np.int32)
+    cdef int [:] coo_rowv  = coo_row
+    coo_col  = np.zeros((Nel,),dtype=np.int32)
+    cdef int [:] coo_colv  = coo_col
+    coo_data = np.zeros((Nel,))
+    cdef double [:] coo_datav  = coo_data
+
+    #front = temp.front()
+    #pop_front = temp.pop_front()
+    for i in range(Nel):
+        coo_rowv[i] = row.front()
+        row.pop_front()
+        
+        coo_colv[i] = col.front()
+        col.pop_front()
+
+        coo_datav[i] = data.front()
+        data.pop_front()
+
+    #return (coo_data,coo_row,coo_col)
+    #dd = np.array([2,3,4])
+    #cc = np.array([0,1,0.0])
+    #rr = np.array([1,0,0])
+    #radonM = coo_matrix((dd, (rr, cc)), shape=(2,2))
+    
+    radonM = coo_matrix((coo_data, (coo_row, coo_col)), shape=(R*T,N*N))
+    radonM = csc_matrix(radonM)
+    
+    return radonM 
 
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True) 
-def  gs(double p,double t):
+cdef double gs(double p,double t) nogil:
     #cdef double pi = np.pi
     #cdef double sqrt2 = np.sqrt(2.0)
     cdef double x1m
