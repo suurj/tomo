@@ -39,7 +39,7 @@ def  radonmatrix(size,theta):
     else:
         dt = theta[1]-theta[0]
     
-    start = time.time()
+    start = time.time() 
     with nogil:                     
         for r in range (0,R):
             for t in range (0,T):
