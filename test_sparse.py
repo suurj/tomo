@@ -15,6 +15,58 @@ import scipy.io
 # K[:,1] = np.array([[1,1,1,1,1]]).T
 # exit(1)
 
+# F = sp.load_npz('koe.npz')
+# M = sp.load_npz('radonmatrix/full-57x50.npz')
+# image = imread("shepp.png", as_gray=True)
+# image = rescale(image, scale=0.1, mode='edge', multichannel=False)
+# r = scipy.io.loadmat('r.mat')
+# r = r['r']
+# image = np.reshape(r,(57,57))
+# theta = np.linspace(0., 179., 50, endpoint=True)
+# ifl = np.reshape(image,(-1,1))
+# ifl2 = np.reshape(image.T,(-1,1))
+# R = radon(image,theta=theta,circle=False)
+#
+# g = r-ifl
+# F=F@ifl
+# F = np.reshape(F,(81,50))
+# M=M@ifl
+# M = np.reshape(M,(81,50))
+# plt.imshow(R)
+# plt.figure()
+# plt.imshow(F)
+# plt.figure()
+# plt.imshow(M)
+# plt.show()
+#
+# exit(0)
+dim = 12
+d1= circulant(np.block([[2], [-1] , [np.zeros((dim - 3, 1))], [-1]]))
+regx2 = np.kron(np.eye(dim), d1)
+regy2 =  np.kron(d1, np.eye(dim))
+
+regvalues = np.array([2,-1,-1,-1,-1])
+offsets = np.array([0,1,-1,dim-1,-dim+1])
+reg1d = sp.diags(regvalues, offsets, shape=(dim, dim))
+regx = sp.kron(sp.eye(dim), reg1d)
+regy = sp.kron(reg1d,sp.eye(dim))
+
+reg1d = reg1d.toarray()
+regy=regy.toarray()
+regx = regx.toarray()
+exit(0)
+
+
+# regvalues = np.array([1,-1,1])
+# offsets = np.array([-dim+1,0,1])
+# reg1d = sp.diags(regvalues, offsets, shape=(dim, dim))
+# regx = sp.kron(sp.eye(dim), reg1d)
+# regy = sp.kron(reg1d,sp.eye(dim))
+#
+# regy=regy.toarray()
+# regx = regx.toarray()
+# exit(0)
+
 # T = 179
 # R = 145
 # M = np.zeros((R,T))
@@ -72,8 +124,8 @@ import scipy.io
 # plt.show()
 # exit(0)
 
-sca = [1.0 ]
-nth = [50]
+sca = [0.05,0.1,0.2 ]
+nth = [10,25,50]
 for scaling in sca:
     for N_theta in nth:
         filename = "shepp.png"
@@ -84,6 +136,7 @@ for scaling in sca:
             raise Exception('Image is not rectangular.')
         N_r = math.ceil(math.sqrt(2) * dim)
         theta = np.linspace(0., 179., N_theta, endpoint=True)
+        theta = theta/360*2*np.pi
         flattened = np.reshape(image, (-1, 1))
         #(N_r, N_theta) = (radon(image, theta, circle=False)).shape
         fname = 'radonmatrix/'+ 'full-' +str(dim) + 'x' + str(N_theta) + '.npz'

@@ -3,7 +3,6 @@ cimport numpy as np
 cimport cython
 import scipy.sparse as sp
 from cython.parallel import prange
-from scipy.linalg import circulant
 from scipy.sparse import csr_matrix,csc_matrix,coo_matrix
 import math
 from libc.math cimport sqrt,fabs,exp, cos, tan,sin,M_SQRT2,M_PI,abs
