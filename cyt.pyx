@@ -223,7 +223,7 @@ cdef lhstep(double[:] Mdata, int[:] Mindices, int[:] Mptr,double [:,:] y,double[
 
 @cython.boundscheck(False)
 @cython.wraparound(False) 
-def mwg(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=1):
+def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=1):
     dimnumpy = y.shape[0]
     cdef int dim = dimnumpy
     x = x0
@@ -313,7 +313,7 @@ def mwg(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=1):
                 old = chainv[j,i-1]
                 #new = old + samplingsigma*number[j]
                 #print(new)
-                new = sqrt(1.0-beta**2.0)*old + beta*samplingsigma*samplingsigma*number[j]
+                new = sqrt(1.0-beta*beta)*old + beta*samplingsigma*samplingsigma*number[j]
                 #print(new)
 
                 change = 0
@@ -410,3 +410,200 @@ def mwg(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=1):
     #print(numer/N)
     return  chain
 
+
+@cython.boundscheck(False)
+@cython.wraparound(False) 
+@cython.cdivision(True)
+def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=1):
+    dimnumpy = y.shape[0]
+    cdef int dim = dimnumpy
+    x = x0
+    xc = np.copy(x)
+    np.random.seed(1)
+    
+    if not isinstance(M, sp.csc.csc_matrix):
+        M = csc_matrix(M)
+    
+    if not isinstance(Lx, sp.csc.csc_matrix):
+        Lx = csc_matrix(Lx)
+        
+    if not isinstance(Ly, sp.csc.csc_matrix):
+        Ly = csc_matrix(Ly)    
+
+    cdef double alpha = regalpha
+    cdef double samplingsigma = sampsigma
+    cdef double beta = samplebeta
+    cdef double Ci = 1.0/lhsigma
+    
+    cdef double[:] Mdata =  M.data
+    cdef int[:] Mindices =  M.indices
+    cdef int[:] Mptr =  M.indptr
+    
+    cdef double[:] Lxdata =  Lx.data
+    cdef int[:] Lxindices =  Lx.indices
+    cdef int[:] Lxptr =  Lx.indptr
+    
+    cdef double[:] Lydata =  Ly.data
+    cdef int[:] Lyindices =  Ly.indices
+    cdef int[:] Lyptr =  Ly.indptr
+ 
+    
+    
+    def pdf(xf):
+        #return np.ravel(np.exp(-Ci * (M @ x - y).T @ (M @ x - y)))
+        return np.ravel(np.exp( -0.5*Ci*(M @ xf - y).T  @ (M @ xf - y)))*np.ravel(np.prod(1.0/(alpha+np.power(Lx @ xf,2))))*np.ravel(np.prod(1.0/(alpha+np.power(Ly @ xf,2)))) 
+    
+    
+    def pdff(xf):
+        #return np.ravel(np.exp(-Ci * (M @ x - y).T @ (M @ x - y)))
+        return (np.sum((M @ xf - y).T  @ (M @ xf - y)) ,np.prod(1/(alpha+np.power(Lx @ xf,2.0))) ,np.prod(1/(alpha+np.power(Ly @ xf,2.0))) )
+    #return np.ravel(np.exp(-1.0 / 2.0 * (M@x-y).T @ Ci @ (M@x-y)))
+    
+   
+    
+    chain = np.zeros((dim, N))
+    chain[:,0] = np.ravel(x)
+    chain2 = np.copy(chain)
+    
+    cdef int acc = 0
+    w = M@x
+    w2 = Lx@x
+    w3 = Ly@x
+    value = np.sum((w-y).T@(w-y))
+    value2 = np.prod(1/(alpha+np.power(w2,2)))
+    value3 = np.prod(1/(alpha+np.power(w3,2)))
+    
+    cdef double[:, :] lhcompv = w
+    cdef double[:, :] prcompv = w2
+    cdef double[:, :] prcompv2 = w3
+    cdef double likelihood = value
+    cdef double prior = value2
+    cdef double prior2 = value3
+    #print(pdf(x0))
+   
+    cdef int i
+    cdef int j
+    cdef double[:, :] xv = x
+    cdef double[:, :] xcv = xc
+    cdef double[:, :] yv = y
+    cdef double new,change, change2, change3, old
+    cdef double[:, :] chainv = chain
+  
+    cdef int k, start, stop
+    cdef double[:] acceptv,number
+    #print(y)
+    #print(w)
+    #print(likelihood)
+    for i in range(1,N):
+        randoms = np.random.randn(dim,)
+        accept = np.random.rand(dim,)
+        acceptv = accept
+        number = randoms
+        
+        with nogil:
+            for j in range(0,dim):
+
+                old = chainv[j,i-1]
+                #new = old + samplingsigma*number[j]
+                #print(new)
+                new = sqrt(1.0-beta*beta)*old + beta*samplingsigma*samplingsigma*number[j]
+                #print(new)
+
+                change = 0
+                change2 = 1
+                change3 = 1
+
+                start = Mptr[j]
+                stop = Mptr[j+1]
+
+                #for k in prange(start,stop,1,nogil=True):
+                for k in range(start,stop):    
+                    change += -(lhcompv[Mindices[k],0]- yv[Mindices[k],0])**2.0 + (Mdata[k]*(new-old) + lhcompv[Mindices[k],0] - yv[Mindices[k],0])**2.0 
+                    #print(Mdata[k],yv[Mindices[k],0], lhcompv[Mindices[k],0])
+                    #change += (new*Mdata[k] - yv[Mindices[k],0])**2.0 - lhcompv[Mindices[k],0]
+
+                start = Lxptr[j]
+                stop = Lxptr[j+1]    
+
+                #for k in prange(start,stop,1,nogil=True):
+                for k in range(start,stop):    
+                    change2 *=  (alpha+(prcompv[Lxindices[k],0])**2.0)/(alpha+(Lxdata[k]*(new-old) + prcompv[Lxindices[k],0])**2.0)
+
+                start = Lyptr[j]
+                stop = Lyptr[j+1]    
+
+                #for k in prange(start,stop,1,nogil=True):
+                for k in range(start,stop):    
+                    change3 *= (alpha+(prcompv2[Lyindices[k],0])**2.0) /(alpha+(Lydata[k]*(new-old) + prcompv2[Lyindices[k],0])**2.0)
+
+                #xc[j,0] = new
+                #dd = (likelihood+change,prior+change2)
+                #ddf = (likelihood,prior)
+                ratio = exp(-0.5*Ci*change)*change2*change3
+                #print((exp(-0.5*Ci*change),change2,change3))
+                #ratio2 = pdf(xc)/pdf(x)
+                #print(pdff(xc))
+                #print(pdff(x))
+                #print(ratio2,ratio)
+                #exit(1)
+                #print(ratio-ratio2)
+
+                #chain2[j,i] = ratio
+                if(acceptv[j] <= ratio):
+                    chainv[j,i] = new
+                    #likelihood = likelihood + change
+                    #prior = prior + change2
+                    #prior2 = prior2 + change3
+
+                    start = Lxptr[j]
+                    stop = Lxptr[j+1]    
+
+                    #for k in prange(start,stop,1,nogil=True):
+                    for k in range(start,stop):    
+                        prcompv[Lxindices[k],0] = prcompv[Lxindices[k],0] + Lxdata[k]*(new-old)
+
+                    start = Lyptr[j]
+                    stop = Lyptr[j+1]    
+
+                    #for k in prange(start,stop,1,nogil=True):
+                    for k in range(start,stop):    
+                        prcompv2[Lyindices[k],0] = prcompv2[Lyindices[k],0] + Lydata[k]*(new-old)    
+
+                    start = Mptr[j]
+                    stop = Mptr[j+1]
+
+                    #for k in prange(start,stop,1,nogil=True):
+                    for k in range(start,stop):     
+                        lhcompv[Mindices[k],0] = lhcompv[Mindices[k],0] + Mdata[k]*(new-old)
+
+                    #x[j,0] = new
+
+                else:
+                    chainv[j,i] = old
+                    #xc[j,0] = old
+            #change = np.reshape(M[:,j]*(np.ravel(pr-x[j,0])),(-1,1))
+            #change2 = np.reshape(L[:,j]*(np.ravel(pr-x[j,0])),(-1,1))
+            #newvalue=np.exp((change-y+w).T@(change-y+w)*Ci*-0.5)
+            #newvalue = np.ravel(np.exp((change - y + w).T @ (change - y + w) * -Ci))
+            #newvalue2 = np.exp(-alpha*np.sum(np.abs(change2+w2)))
+            #ratio2 = newvalue*newvalue2/(value*value2)
+            #xc[j,0] = pr
+            #ratio = pdf(xc)/pdf(x)
+            #if (np.random.rand(1) <= ratio2):
+                #x[j,0] = pr#xc[j,0]
+                #w = w+ change
+                #w2 = w2+change2
+                #value = newvalue
+                #e = pdf(x)
+                #value2 = newvalue2
+                #acc = acc +1
+            #else:
+                #pass
+                #xc[j,0] = x[j,0]
+
+        #numer = numer + x
+        #chain[:,i] = np.ravel(x)
+        
+    #print(acc/(N*dim))
+    #print(numer/N)
+    return  chain

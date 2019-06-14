@@ -10,13 +10,13 @@ from scipy.optimize import  minimize
 from line_profiler import LineProfiler
 import  time
 import matplotlib.pyplot as plt
-from cyt import mwg
+#from cyt import mwg
 
 from numba import jit
 #@jit(nopython=True)
 #@profile
 
-
+'''
 def hmc(N,x):
     dim = x.shape[0]
     q = np.zeros((dim, 1))
@@ -52,20 +52,97 @@ def hmc(N,x):
     print(acc/N)
     print(numer / N)
     return chain
+'''
+R = np.eye(3)
+#R = R + np.array([[0, 1, -1],[1 ,0, 2],[-1, 2 ,0]])
+#R = np.linalg.cholesky(R)
 
-
-M = sp.eye(700000,format="csc") #+ np.array([[0,4.9,0],[4.9,0,0],[0,0,0]])
-#M = sp.linalg.inv(M)
-#R = sp.linalg.cholesky(M)
-#R = R.T
-R = M
-#Q = np.eye(3)
 
 def pdf(x):
     #return np.exp(-1/2*x.T@Q@x)
     #return np.exp(-1/2*np.sum(np.power(R@x,2)))
     return np.exp(-1/2*(R@x).T@(R@x))
     #return np.exp(-1/2*x.T@M@x)
+
+def gradi(x):
+    return np.reshape(-R.T@R@x*np.exp(-0.5*(R@x).T@R@x),(-1,1))
+
+def density(theta,r):
+    return np.exp(np.log(pdf(theta))-0.5*np.dot(r,r))
+
+def leapfrog(theta,r,epsilon,L=1):
+    for _ in range(0,L):
+        r = r + (epsilon/2)*grad(theta)
+        theta = theta + epsilon*r
+        r = r + (epsilon/2)*grad(theta)
+    return (theta,r)
+
+def initialeps(theta):
+    eps = 1
+    r = np.random.randn(theta.shape[0],1)
+    (theta2,r2) = leapfrog(theta,r,eps)
+    a = 2*(density(theta2,r2)/density(theta,r) > 0.5) -1
+    while ((density(theta2,r2)/density(theta,r))**a > 2**(-a)):
+        eps = 2**(a)*eps
+        (theta2,r2) = leapfrog(theta,r,eps)
+    return eps
+
+def hmc(M,x):
+    dim = x.shape[0]
+    theta = np.zeros((dim, M))
+    theta0 = np.zeros((dim, 1))
+    theta[:, 0] = np.ravel(theta0)
+    delta = 0.6
+    epsilon = initialeps(theta0)
+    myy = np.log(10*epsilon)
+    epsilonhat = 1
+    Hhat = 0
+    gamma = 0.05
+    t = 10
+    kappa = 0.75
+
+    for i in range(1,M):
+        r0 = np.random.randn(dim, 1)
+        u = density(theta[:,i-1],r0)*np.random.rand()
+        thetaminus = theta[:,i-1]
+        thetaplus = theta[:,i-1]
+        rminus = r0
+        rplus = r0
+        j = 0
+        thetai = theta[:,i-1]
+        n = 1
+        s = 1
+
+        while (s==1):
+            vj = np.random.choice(np.array([-1,1]))
+            if (vj ==-1):
+                (thetaminus,rminus,_,_,thetatilde,ntilde,stilde,alfa,nalfa) = buildtree(thetaminus,rminus,u,vj,j,epsilon,theta[:,i-1],r0)
+            else:
+                (_,_,thetaplus,rplus,thetatilde, ntilde, stilde, alfa, nalfa) = buildtree(thetaplus, rplus, u,vj,j,epsilon,theta[:,i-1],r0)
+
+            if (stilde ==1):
+                pass
+    return theta
+#print(grad(pdf)(np.array([-0.6490,1.1812,-0.7585]) ))
+
+y=np.random.randn(50000,1)
+R = np.random.randn(50000,50000)
+t = time.time()
+
+f = scipy.linalg.blas.sgemv(1.0,R,y)
+print(t -time.time())
+t = time.time()
+ff = R@y
+print(t -time.time())
+
+#print(gradi(np.array([-0.6490,1.1812,-0.7585])))
+# M = sp.eye(700000,format="csc") #+ np.array([[0,4.9,0],[4.9,0,0],[0,0,0]])
+# #M = sp.linalg.inv(M)
+# #R = sp.linalg.cholesky(M)
+# #R = R.T
+# R = M
+#Q = np.eye(3)
+
 
 def koe(N,y):
     np.random.seed(1)
@@ -164,14 +241,14 @@ def am(N,x):
     #print(numer/N)
     return chain
 
-qq = 10 * np.eye(30)
-qqi = np.linalg.inv(qq)
-
-def pdff(x):
-    return np.ravel(np.exp(-1.0 / 2.0 * x.T @ qqi @ x))
-
-def pdf2(x):
-    return (np.abs(x[0])<=2)*(np.abs(x[1])<=2)*np.exp((-10*(x[0]**2.0-x[1])**2.0-(x[1]-1/4)**4.0))
+# qq = 10 * np.eye(30)
+# qqi = np.linalg.inv(qq)
+#
+# def pdff(x):
+#     return np.ravel(np.exp(-1.0 / 2.0 * x.T @ qqi @ x))
+#
+# def pdf2(x):
+#     return (np.abs(x[0])<=2)*(np.abs(x[1])<=2)*np.exp((-10*(x[0]**2.0-x[1])**2.0-(x[1]-1/4)**4.0))
 
 # def ex(x,y):
 #     return x*(np.abs(x)<=2)*(np.abs(y)<=2)*np.exp((-10.0*(x**2.0-y)**2.0-(y-1/4)**4.0))/1.1813446034359008
@@ -188,23 +265,23 @@ def pdf2(x):
 
 #w = am(500,x)
 # print(t-time.time())
-t = time.time()
-
-Lx = sp.eye(1,700000)
-Ly = sp.eye(1,700000)
-y = 4*np.zeros((700000,1))
-x0 = np.zeros((700000,1))
-print(np.sum(np.power(R@y,2)))
-print(np.sum(y.T@M@y))
-#c = am(5,x0)
-#c = koe(1009,y)
-print("----")
-c = mwg(R,Lx,Ly,y,x0,20 ,regalpha=1, samplebeta=0.1, sampsigma=5.0,lhsigma=1.0)
-#print(c)
-#qq = w-c
-print(t-time.time())
-plt.plot(c[0,:],c[1,:],'r*')
-#print(np.cov(c))
-#print(np.mean(c,axis=1))
-#plt.plot(w[0,:],w[1,:],'b*')
-plt.show()
+# t = time.time()
+#
+# Lx = sp.eye(1,700000)
+# Ly = sp.eye(1,700000)
+# y = 4*np.zeros((700000,1))
+# x0 = np.zeros((700000,1))
+# print(np.sum(np.power(R@y,2)))
+# print(np.sum(y.T@M@y))
+# #c = am(5,x0)
+# #c = koe(1009,y)
+# print("----")
+# c = mwg(R,Lx,Ly,y,x0,20 ,regalpha=1, samplebeta=0.1, sampsigma=5.0,lhsigma=1.0)
+# #print(c)
+# #qq = w-c
+# print(t-time.time())
+# plt.plot(c[0,:],c[1,:],'r*')
+# #print(np.cov(c))
+# #print(np.mean(c,axis=1))
+# #plt.plot(w[0,:],w[1,:],'b*')
+# plt.show()

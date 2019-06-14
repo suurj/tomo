@@ -1,10 +1,12 @@
 import os
 import numpy as np
 import scipy.sparse as sp
-from scipy.linalg import circulant
+#import autograd_sparse as sp
+#import autograd.numpy as np
+from autograd import grad
 from skimage.transform import radon, rescale
 from scipy.sparse import csr_matrix,csc_matrix,lil_matrix, coo_matrix, dok_matrix
-from cyt import  radonmatrix
+from cyt import  radonmatrix, mwg_cauchy,mwg_tv
 import math
 import time
 from skimage.io import imread
@@ -14,7 +16,16 @@ import scipy.io
 # K = lil_matrix((5,5))
 # K[:,1] = np.array([[1,1,1,1,1]]).T
 # exit(1)
-
+# np.random.seed(1)
+# M = sp.eye(400,format='csc')
+# Lx = sp.eye(400,format='csc')
+# Ly = sp.eye(400,format='csc')
+# y = np.random.rand(400,1)
+# x0 = np.random.rand(400,1)
+# N = 20000
+# t = time.time()
+# d=mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=2, samplebeta=0.3, sampsigma=1,lhsigma=1)
+# print(time.time()-t)
 # F = sp.load_npz('koe.npz')
 # M = sp.load_npz('radonmatrix/full-57x50.npz')
 # image = imread("shepp.png", as_gray=True)
@@ -40,20 +51,20 @@ import scipy.io
 # plt.show()
 #
 # exit(0)
-dim = 12
-d1= circulant(np.block([[2], [-1] , [np.zeros((dim - 3, 1))], [-1]]))
-regx2 = np.kron(np.eye(dim), d1)
-regy2 =  np.kron(d1, np.eye(dim))
-
-regvalues = np.array([2,-1,-1,-1,-1])
-offsets = np.array([0,1,-1,dim-1,-dim+1])
-reg1d = sp.diags(regvalues, offsets, shape=(dim, dim))
-regx = sp.kron(sp.eye(dim), reg1d)
-regy = sp.kron(reg1d,sp.eye(dim))
-
-reg1d = reg1d.toarray()
-regy=regy.toarray()
-regx = regx.toarray()
+# dim = 12
+# d1= circulant(np.block([[2], [-1] , [np.zeros((dim - 3, 1))], [-1]]))
+# regx2 = np.kron(np.eye(dim), d1)
+# regy2 =  np.kron(d1, np.eye(dim))
+#
+# regvalues = np.array([2,-1,-1,-1,-1])
+# offsets = np.array([0,1,-1,dim-1,-dim+1])
+# reg1d = sp.diags(regvalues, offsets, shape=(dim, dim))
+# regx = sp.kron(sp.eye(dim), reg1d)
+# regy = sp.kron(reg1d,sp.eye(dim))
+#
+# reg1d = reg1d.toarray()
+# regy=regy.toarray()
+# regx = regx.toarray()
 exit(0)
 
 
@@ -124,43 +135,43 @@ exit(0)
 # plt.show()
 # exit(0)
 
-sca = [0.05,0.1,0.2 ]
-nth = [10,25,50]
-for scaling in sca:
-    for N_theta in nth:
-        filename = "shepp.png"
-        image = imread(filename, as_gray=True)
-        image = rescale(image, scale=scaling, mode='edge', multichannel=False)
-        (dim, dimx) = image.shape
-        if (dim != dimx):
-            raise Exception('Image is not rectangular.')
-        N_r = math.ceil(math.sqrt(2) * dim)
-        theta = np.linspace(0., 179., N_theta, endpoint=True)
-        theta = theta/360*2*np.pi
-        flattened = np.reshape(image, (-1, 1))
-        #(N_r, N_theta) = (radon(image, theta, circle=False)).shape
-        fname = 'radonmatrix/'+ 'full-' +str(dim) + 'x' + str(N_theta) + '.npz'
-
-        if (not os.path.isfile(fname)):
-            #Mf = np.zeros([N_r * N_theta, dim * dim])
-            M = radonmatrix(dim,theta)
-            # M = lil_matrix((N_r*N_theta,dim*dim))
-            # empty = np.zeros([dim, dim])
-            # for i in range(0, dim):
-            #     for j in range(0, dim):
-            #         empty[i, j] = 1
-            #         #ww=np.ravel(np.reshape(radon(empty, theta, circle=False), (N_r * N_theta, 1)))
-            #         M[:, i * dim + j] = np.reshape(radon(empty, theta, circle=False), (N_r * N_theta, 1))
-            #         empty[i, j] = 0
-            # # qq = np.reshape(M@flattened,(N_r,N_theta))
-            # # plt.imshow(qq)
-            # # plt.figure()
-            # # plt.imshow(radon(image, theta, circle=True))
-            # # plt.show()
-            # # exit(1)
-            print(fname)
-            # M = csc_matrix(M)
-            sp.save_npz(fname,M)
+# sca = [0.05,0.1,0.2 ]
+# nth = [10,25,50]
+# for scaling in sca:
+#     for N_theta in nth:
+#         filename = "shepp.png"
+#         image = imread(filename, as_gray=True)
+#         image = rescale(image, scale=scaling, mode='edge', multichannel=False)
+#         (dim, dimx) = image.shape
+#         if (dim != dimx):
+#             raise Exception('Image is not rectangular.')
+#         N_r = math.ceil(math.sqrt(2) * dim)
+#         theta = np.linspace(0., 179., N_theta, endpoint=True)
+#         theta = theta/360*2*np.pi
+#         flattened = np.reshape(image, (-1, 1))
+#         #(N_r, N_theta) = (radon(image, theta, circle=False)).shape
+#         fname = 'radonmatrix/'+ 'full-' +str(dim) + 'x' + str(N_theta) + '.npz'
+#
+#         if (not os.path.isfile(fname)):
+#             #Mf = np.zeros([N_r * N_theta, dim * dim])
+#             M = radonmatrix(dim,theta)
+#             # M = lil_matrix((N_r*N_theta,dim*dim))
+#             # empty = np.zeros([dim, dim])
+#             # for i in range(0, dim):
+#             #     for j in range(0, dim):
+#             #         empty[i, j] = 1
+#             #         #ww=np.ravel(np.reshape(radon(empty, theta, circle=False), (N_r * N_theta, 1)))
+#             #         M[:, i * dim + j] = np.reshape(radon(empty, theta, circle=False), (N_r * N_theta, 1))
+#             #         empty[i, j] = 0
+#             # # qq = np.reshape(M@flattened,(N_r,N_theta))
+#             # # plt.imshow(qq)
+#             # # plt.figure()
+#             # # plt.imshow(radon(image, theta, circle=True))
+#             # # plt.show()
+#             # # exit(1)
+#             print(fname)
+#             # M = csc_matrix(M)
+#             sp.save_npz(fname,M)
             #np.savez_compressed(fname, radonoperator=M)
 
 #cyt.mwg(10,np.zeros((10,1)) )
