@@ -206,7 +206,7 @@ class tomography:
 if __name__ == "__main__":
 
 
-    t = tomography("shepp.png",0.2,50,10**(-12))
+    t = tomography("shepp.png",0.1,20,10**(-12))
     #r = t.map_tv(10.0)
     r=t.map_cauchy(1)
     #r = t.map_tikhonov(10.0)

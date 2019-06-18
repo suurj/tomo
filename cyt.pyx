@@ -9,6 +9,220 @@ from libc.math cimport sqrt,fabs,exp, cos, tan,sin,M_SQRT2,M_PI,abs
 from libcpp.list cimport list as cpplist
 import time
 
+def tv_grad(M, Lx, Ly, y, x, s2, alfa, beta):
+    Lxdata =  Lx.data
+    Lxindices = Lx.indices
+    Lxptr = Lx.indptr
+
+    Lydata = Ly.data
+    Lyindices = Ly.indices
+    Lyptr = Ly.indptr
+    (row,col) = Ly.shape
+
+    # Mxy = np.dot(M,x)-y
+    Mxy = M.dot(x) - y
+    # Lxx = np.dot(Lx,x)
+    Lxx = Lx.dot(x)
+    # Lyx = np.dot(Ly,x)
+    Lyx = Ly.dot(x)
+
+    #common = 1#np.exp(-s2 * np.dot(Mxy.T, Mxy)) * np.exp(-alfa * np.sum(np.sqrt(np.power(Lxx,2) + beta))) * np.exp(
+    #   -alfa * np.sum(np.sqrt(np.power(Lyx,2) + beta)))
+    gr = -s2 * 2.0 * (M.T).dot(Mxy) 
+
+
+    #exit(1)
+    for i in range(col):
+        s = 0
+        for j in range(Lxptr[i],Lxptr[i+1]):
+            s = s - Lxdata[j]*Lxx[Lxindices[j]]/np.sqrt(Lxx[Lxindices[j]]**2 + beta)
+
+        #exit(0)
+        gr[i,0] = gr[i,0] + alfa*s
+
+    for i in range(col):
+        s = 0
+        for j in range(Lyptr[i], Lyptr[i + 1]):
+            s = s - Lydata[j] * Lyx[Lyindices[j]] / np.sqrt(Lyx[Lyindices[j]] ** 2 + beta)
+
+        # exit(0)
+        gr[i, 0] = gr[i, 0] + alfa * s 
+    return gr
+
+def cauchy_grad(M, Lx, Ly, y, x, s2, alfa, beta):
+    Lxdata =  Lx.data
+    Lxindices = Lx.indices
+    Lxptr = Lx.indptr
+
+    Lydata = Ly.data
+    Lyindices = Ly.indices
+    Lyptr = Ly.indptr
+    (row,col) = Ly.shape
+
+    # Mxy = np.dot(M,x)-y
+    Mxy = M.dot(x) - y
+    # Lxx = np.dot(Lx,x)
+    Lxx = Lx.dot(x)
+    # Lyx = np.dot(Ly,x)
+    Lyx = Ly.dot(x)
+
+    #common = 1#np.exp(-s2 * np.dot(Mxy.T, Mxy)) * np.exp(-alfa * np.sum(np.sqrt(np.power(Lxx,2) + beta))) * np.exp(
+    #   -alfa * np.sum(np.sqrt(np.power(Lyx,2) + beta)))
+    gr = -s2 * 2.0 * (M.T).dot(Mxy)
+
+
+    #exit(1)
+    for i in range(col):
+        s = 0
+        for j in range(Lxptr[i],Lxptr[i+1]):
+            s = s - 2*Lxx[Lxindices[j]]/(alfa+Lxx[Lxindices[j]]**2)*Lxdata[j]
+
+        #exit(0)
+        gr[i,0] = gr[i,0] + s
+
+    for i in range(col):
+        s = 0
+        for j in range(Lyptr[i], Lyptr[i + 1]):
+            s = s - 2 * Lyx[Lyindices[j]] / (alfa + Lyx[Lyindices[j]] ** 2)*Lydata[j]
+
+        # exit(0)
+        gr[i, 0] = gr[i, 0] +   s
+    return gr
+
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+def gradi(x,A):
+    return -0.5*2*((A[0].T).dot(A[0])).dot(x)
+    #*np.exp(-0.5*np.dot(res.T,res))
+    #return np.reshape(-np.matmul(np.matmul(A[0].T,A[0]),x),(-1,1))
+
+
+def logdensity(theta,A):
+    #print(A[0].dot(theta))
+    #print(-1* np.dot(A[0].dot(theta).T, A[0].dot(theta)),theta)
+    return -0.5* np.dot(A[0].dot(theta).T, A[0].dot(theta))
+    #return 2 * np.dot((np.dot(A[0], theta)).T , (np.dot(A[0], theta)))
+    #return np.exp(-0.5*(np.dot(A,theta)).T@(np.dot(A,theta)) - 0.5 * np.dot(r.T, r))
+    #return np.exp(np.log(pdf(theta)) - 0.5 * np.dot(r.T, r))
+    #return np.exp(np.log(pdf(theta))-0.5*np.dot(r.T,r))
+
+
+def leapfrog(theta,r,epsilon,A):
+    r = r + (epsilon/2.0)*gradi(theta,A)
+    theta = theta + epsilon*r
+    r = r + (epsilon/2.0)*gradi(theta,A)
+    #print(theta)
+    return (theta,r)
+
+
+def initialeps(theta,A):
+    def totalenergy(x, r, A):
+        # return np.exp(-1/2*x.T@Q@x)
+        # return np.exp(-1/2*np.sum(np.power(R@x,2)))
+        energy = (logdensity(x, A) - 0.5 * np.dot(r.T, r))
+        # if (x[0] > 10):
+        #    print(x)
+        return energy
+    eps = 1.0
+    r = np.random.randn(theta.shape[0],1)
+    (theta2,r2) = leapfrog(theta,r,eps,A)
+    a = 2.0*(np.exp(totalenergy(theta2,r2,A) - totalenergy(theta,r,A)) > 0.5) -1.0
+    print(totalenergy(theta2,r2,A) - totalenergy(theta,r,A),a)
+
+    while  a * (totalenergy(theta2,r2,A) - totalenergy(theta,r,A)) > -a * np.log(2):
+        eps = 2.0**(a)*eps
+        (theta2,r2) = leapfrog(theta,r,eps,A)
+    return eps
+
+
+def buildtree(theta,r,u,v,j,epsilon,theta0,r0,A):
+    if (j==0):
+        thetatilde, rtilde = leapfrog(theta,r,v*epsilon,A)
+        ldensitytilde = logdensity(thetatilde,A)
+        ldensity = logdensity(theta0,A)
+        logu = np.log(u)
+        diff =np.exp(ldensitytilde - 0.5*np.dot(rtilde.T,rtilde) - ldensity + 0.5*np.dot(r0.T,r0))
+
+        ntilde = float(logu <= (ldensitytilde - 0.5*np.dot(rtilde.T,rtilde) )  )
+        stilde = float(logu < (1000.0+ldensitytilde - 0.5*np.dot(rtilde.T,rtilde) )  )
+        return thetatilde,rtilde,thetatilde,rtilde,thetatilde,ntilde,stilde,np.min(np.array([1,diff])),1
+
+    else:
+        thetaminus,rminus,thetaplus,rplus,thetatilde,ntilde,stilde,alfatilde,nalfatilde = buildtree(theta,r,u,v,j-1,epsilon,theta0,r0,A)
+
+        if(stilde == 1):
+            if(v == -1):
+                thetaminus, rminus, _, _, thetatildetilde, ntildetilde, stildetilde, alfatildetilde, nalfatildetilde = buildtree(
+                    thetaminus, rminus, u, v, j - 1, epsilon, theta0, r0,A)
+            else:
+                _, _, thetaplus, rplus, thetatildetilde, ntildetilde, stildetilde, alfatildetilde, nalfatildetilde = buildtree(
+                    thetaplus, rplus, u, v, j - 1, epsilon, theta0, r0,A)
+            if(np.random.rand() <= ntildetilde/np.max(np.array([ntilde + ntildetilde,1]))):
+                thetatilde = thetatildetilde
+
+            alfatilde = alfatilde + alfatildetilde
+            nalfatilde = nalfatilde + nalfatildetilde
+            stilde = stildetilde*(np.dot((thetaplus -thetaminus).T,rminus) >= 0)*(np.dot((thetaplus -thetaminus).T,rplus))
+            ntilde = ntilde + ntildetilde
+
+
+        return thetaminus,rminus,thetaplus,rplus,thetatilde,ntilde,stilde,alfatilde,nalfatilde
+#@profile
+
+def hmc(M,x):
+    A = (np.eye(3)*1,None)
+    x = np.reshape(x,(-1,1))
+    dim = x.shape[0]
+    theta = np.zeros((dim, M))
+    theta0 = x
+    theta[:, 0] = np.ravel(theta0)
+    delta = 0.60
+    epsilon = initialeps(theta0,A)
+    myy = np.log(10*epsilon)
+    epsilonhat = 1.0
+    Hhat = 0.0
+    gamma = 0.05
+    t0 = 10
+    kappa = 0.75
+    Madapt = int(0.07*M)
+
+    for i in range(1,M):
+
+        r0 = np.random.randn(dim, 1)
+        u = np.exp(logdensity(theta[:,i-1],A) - 0.5*np.dot(r0.T,r0))*np.random.rand()
+        thetaminus = np.reshape(theta[:,i-1],(-1,1))
+        thetaplus = np.reshape(theta[:,i-1],(-1,1))
+        rminus = r0
+        rplus = r0
+        j = 0
+        n = 1.0
+        s = 1.0
+        theta[:, i] = theta[:, i - 1]
+        #exit(1)
+        while (s==1):
+            vj = np.random.choice(np.array([-1,1]))
+            if (vj ==-1):
+                thetaminus,rminus,_,_,thetatilde,ntilde,stilde,alfa,nalfa = buildtree(thetaminus,rminus,u,vj,j,epsilon,theta[:,i-1],r0,A)
+            else:
+                _,_,thetaplus,rplus,thetatilde,ntilde,stilde,alfa,nalfa = buildtree(thetaplus, rplus, u,vj,j,epsilon,theta[:,i-1],r0,A)
+
+            if (stilde ==1):
+                if(np.random.rand() < ntilde/n):
+                    theta[:, i] = np.ravel(thetatilde)
+
+            n = n+ntilde
+            s = stilde*(np.dot((thetaplus -thetaminus).T,rminus) >= 0)*(np.dot((thetaplus -thetaminus).T,rplus) >= 0)
+            j = j +1
+
+        if(i <=Madapt):
+            Hhat = (1.0-1.0/(i+t0))*Hhat + 1.0/(i+t0)*(delta - alfa/nalfa)
+            epsilon = np.exp(myy -np.sqrt(i)/gamma*Hhat)
+            epsilonhat = np.exp(i**(-kappa)*np.log(epsilon)+(1.0-i**(-kappa))*np.log(epsilonhat))
+        else:
+            epsilon = epsilonhat
+
+    return theta[:,Madapt:]
+
 @cython.boundscheck(False) 
 #@cython.wraparound(False)
 @cython.cdivision(True) 
@@ -154,7 +368,7 @@ cdef double gs(double p,double t) nogil:
     #a = min(a,3);
 
 
-
+'''
 def csr_spmul(int Nrow,int Ncol,np.ndarray[np.double_t] data, np.ndarray[int] indices,np.ndarray[int] ptr, np.ndarray[np.double_t, ndim=2] x):
     cdef int i
     cdef int j
@@ -165,6 +379,7 @@ def csr_spmul(int Nrow,int Ncol,np.ndarray[np.double_t] data, np.ndarray[int] in
             r[i] += data[j] * x[indices[j]]
 
     return r
+'''    
 @cython.boundscheck(False) 
 @cython.wraparound(False) 
 def csc_spmul(int Nrow,int Ncol,np.ndarray[np.double_t] data, np.ndarray[int] indices, np.ndarray[int] ptr, np.ndarray[np.double_t, ndim=2] x):
@@ -504,7 +719,7 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsi
             for j in range(0,dim):
 
                 old = chainv[j,i-1]
-                #new = old + samplingsigma*number[j]
+                #new = old + samplingsigma*samplingsigma*number[j]
                 #print(new)
                 new = sqrt(1.0-beta*beta)*old + beta*samplingsigma*samplingsigma*number[j]
                 #print(new)
