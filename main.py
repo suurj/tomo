@@ -51,9 +51,13 @@ class tomography:
         #self.radonoperator = loaded['radonoperator']
         #loaded.close()
 
-        self.measurement = np.exp(-self.radonoperator @ self.flattened) + noise * np.random.randn(self.N_r * self.N_theta, 1)
-        self.measurement[self.measurement<=0] = 10**(-19)
-        self.lines = -np.log(self.measurement)
+        # self.measurement = np.exp(-self.radonoperator @ self.flattened) + noise * np.random.randn(self.N_r * self.N_theta, 1)
+        # self.measurement[self.measurement<=0] = 10**(-19)
+        # self.lines = -np.log(self.measurement)
+
+        self.measurement = self.radonoperator @ self.flattened
+        #self.measurement[self.measurement <= 0] = 10 ** (-19)
+        self.lines =  self.measurement + noise * np.random.randn(self.N_r * self.N_theta, 1)
 
     def map_tikhonov(self,alpha=1.0):
         #col = np.block([[-1], [np.zeros((self.y - 2, 1))]])
@@ -205,16 +209,17 @@ class tomography:
 
 if __name__ == "__main__":
 
-
-    t = tomography("shepp.png",0.1,20,10**(-12))
+    np.random.seed(1)
+    t = tomography("shepp.png",0.1,20,0.2)
+    t = tomography("shepp.png",0.1,20,0.2)
     #r = t.map_tv(10.0)
-    r=t.map_cauchy(1)
+    r=t.map_cauchy(0.1)
     #r = t.map_tikhonov(10.0)
     plt.imshow(r)
     plt.figure()
     #q = iradon_sart(q, theta=theta)
-    r = t.map_tikhonov(10.0)
-    #r = t.map_tv(10.0)
+    #r = t.map_tikhonov(10.0)
+    r = t.map_tv(10.0)
     plt.imshow(r)
     plt.show()
 

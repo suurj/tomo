@@ -10,7 +10,7 @@ from scipy.optimize import  minimize
 from line_profiler import LineProfiler
 import  time
 import matplotlib.pyplot as plt
-#from cyt import hmc#,tv_grad
+from cyt import hmc,tv_grad,cauchy_grad,tikhonov_grad
 
 from numba import jit
 #@jit(nopython=True)
@@ -57,8 +57,69 @@ def hmc(N,x):
 
 #R = R + np.array([[0, -2, -2] ,[-2, 0 ,-2],[ -2, -2 ,0]]);
 #R = np.linalg.cholesky(np.linalg.inv(R));
+def  gradient(f,x):
+    N = x.shape[0]
+    eps = 1e-7;
+    xn = x.copy(); xe = x.copy();
+    gr = np.zeros((N,1));
+    for i  in range(N):
+        xn[i] = x[i] + eps;
+        xe[i] = x[i] - eps;
+        gr[i] = (f(xn) -f(xe))/(2*eps);
+        xn[i] = x[i];
+        xe[i] = x[i];
 
+    return  gr
 
+def density(x,M,Lx,Ly,y,s2,alfa,beta):
+    Mxy = M.dot(x) - y
+    # Lxx = np.dot(Lx,x)
+    Lxx = Lx.dot(x)
+    # Lyx = np.dot(Ly,x)
+    Lyx = Ly.dot(x)
+    return -0.5/s2 * np.dot(Mxy.T, Mxy)  -alfa*np.sum(np.sqrt(np.power(Lxx,2) + beta))  -alfa * np.sum(np.sqrt(np.power(Lyx,2) + beta))
+    #return np.log(np.exp(-s2 * np.dot(Mxy.T, Mxy)) * np.exp(-alfa * np.sum(np.sqrt(np.power(Lxx,2) + beta))) * np.exp(
+    #   -alfa * np.sum(np.sqrt(np.power(Lyx,2) + beta))))
+
+def density2(x,M,Lx,Ly,y,s2,alfa,beta):
+    Mxy = M.dot(x) - y
+    # Lxx = np.dot(Lx,x)
+    Lxx = Lx.dot(x)
+    # Lyx = np.dot(Ly,x)
+    Lyx = Ly.dot(x)
+    return -0.5/s2 * np.dot(Mxy.T, Mxy)  - np.sum(np.log(alfa+np.power(Lyx,2))) - np.sum(np.log(alfa+np.power(Lxx,2)))
+
+def density3(x,M,Lx,Ly,y,s2,alfa,beta):
+    Mxy = M.dot(x) - y
+    # Lxx = np.dot(Lx,x)
+    Lxx = Lx.dot(x)
+    # Lyx = np.dot(Ly,x)
+    Lyx = Ly.dot(x)
+    return -0.5/s2 * np.dot(Mxy.T, Mxy)  - alfa*np.dot(Lxx.T,Lxx) - alfa*np.dot(Lyx.T,Lyx)
+
+x = np.random.randn(40,1)
+M = np.random.randn(40,40)
+Lx = np.random.randn(43,40)
+Ly = np.random.randn(40,40)
+y = np.random.randn(40,1)
+M = csc_matrix(M)
+Lx = csc_matrix(Lx)
+Ly = csc_matrix(Ly)
+j=M.dot(x)
+j = j-y
+s2 = 1
+a = 1
+b = 1
+t = time.time()
+gr = tv_grad(x,M, Lx, Ly, y, s2, a, b)
+print(time.time() -t)
+print(gr)
+wrapper = lambda x: density(x,M,Lx,Ly,y,s2,a,b)
+t = time.time()
+gg = gradient(wrapper,x)
+print(time.time() -t)
+print(gg)
+exit(1)
 
 def gradi(x,A):
     return -0.5*2*((A[0].T).dot(A[0])).dot(x)
@@ -350,7 +411,7 @@ def logdensityy(theta):
 #plt.plot(r[0,:],r[1,:],'*r')
 #plt.show()
 
-y=np.random.randn(500000,1)
+#y=np.random.randn(500000,1)
 #R = np.random.randn(5000,5000)
 #R2 = np.random.randn(5000,5000)
 # R = sp.eye(500000,format='csc')

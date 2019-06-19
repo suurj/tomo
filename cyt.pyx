@@ -9,84 +9,115 @@ from libc.math cimport sqrt,fabs,exp, cos, tan,sin,M_SQRT2,M_PI,abs
 from libcpp.list cimport list as cpplist
 import time
 
-def tv_grad(M, Lx, Ly, y, x, s2, alfa, beta):
-    Lxdata =  Lx.data
-    Lxindices = Lx.indices
-    Lxptr = Lx.indptr
 
-    Lydata = Ly.data
-    Lyindices = Ly.indices
-    Lyptr = Ly.indptr
-    (row,col) = Ly.shape
+@cython.cdivision(True)
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+def tikhonov_grad(x,M, Lx, Ly, y, s2, a, b):
+    Mxy = M.dot(x) - y
+    Lxx = Lx.dot(x) 
+    Lyx = Ly.dot(x)
+    return -1.0/s2  * (M.T).dot(Mxy)  - 2.0*a*(Lx.T).dot(Lxx) - 2.0*a*(Ly.T).dot(Lyx)
+
+@cython.cdivision(True)
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+def tv_grad(x,M, Lx, Ly, y, s2, a, b):
+    cdef double [:] Lxdata =  Lx.data
+    cdef int [:] Lxindices = Lx.indices
+    cdef int [:] Lxptr = Lx.indptr
+    #print(M)
+    cdef double [:] Lydata = Ly.data
+    cdef int [:]Lyindices = Ly.indices
+    cdef int [:]Lyptr = Ly.indptr
+    (ro,co) = Ly.shape
+    cdef int row = ro
+    cdef int col = co
+    cdef double alfa = a
+    cdef double beta = b 
+    
 
     # Mxy = np.dot(M,x)-y
     Mxy = M.dot(x) - y
     # Lxx = np.dot(Lx,x)
-    Lxx = Lx.dot(x)
+    cdef double [:,:] Lxx = Lx.dot(x)
     # Lyx = np.dot(Ly,x)
-    Lyx = Ly.dot(x)
+    cdef double [:,:] Lyx = Ly.dot(x)
 
     #common = 1#np.exp(-s2 * np.dot(Mxy.T, Mxy)) * np.exp(-alfa * np.sum(np.sqrt(np.power(Lxx,2) + beta))) * np.exp(
     #   -alfa * np.sum(np.sqrt(np.power(Lyx,2) + beta)))
-    gr = -s2 * 2.0 * (M.T).dot(Mxy) 
-
+    gr = -1.0/s2  * (M.T).dot(Mxy) 
+    cdef double [:,:] grv = gr
+    cdef int i,j
+    cdef double s
 
     #exit(1)
-    for i in range(col):
+    for i in prange(col,nogil=True):
         s = 0
         for j in range(Lxptr[i],Lxptr[i+1]):
-            s = s - Lxdata[j]*Lxx[Lxindices[j]]/np.sqrt(Lxx[Lxindices[j]]**2 + beta)
+            s = s - Lxdata[j]*Lxx[Lxindices[j],0]/sqrt(Lxx[Lxindices[j],0]**2 + beta)
 
         #exit(0)
-        gr[i,0] = gr[i,0] + alfa*s
+        grv[i,0] = grv[i,0] + alfa*s
 
-    for i in range(col):
+    for i in prange(col,nogil=True):
         s = 0
         for j in range(Lyptr[i], Lyptr[i + 1]):
-            s = s - Lydata[j] * Lyx[Lyindices[j]] / np.sqrt(Lyx[Lyindices[j]] ** 2 + beta)
+            s = s - Lydata[j] * Lyx[Lyindices[j],0] / sqrt(Lyx[Lyindices[j],0] ** 2 + beta)
 
         # exit(0)
-        gr[i, 0] = gr[i, 0] + alfa * s 
+        grv[i, 0] = grv[i, 0] + alfa * s 
     return gr
 
-def cauchy_grad(M, Lx, Ly, y, x, s2, alfa, beta):
-    Lxdata =  Lx.data
-    Lxindices = Lx.indices
-    Lxptr = Lx.indptr
-
-    Lydata = Ly.data
-    Lyindices = Ly.indices
-    Lyptr = Ly.indptr
-    (row,col) = Ly.shape
+@cython.cdivision(True)
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+def cauchy_grad(x,M, Lx, Ly, y, s2, a, b):
+    cdef double [:] Lxdata =  Lx.data
+    cdef int [:] Lxindices = Lx.indices
+    cdef int [:] Lxptr = Lx.indptr
+    #print(M)
+    cdef double [:] Lydata = Ly.data
+    cdef int [:]Lyindices = Ly.indices
+    cdef int [:]Lyptr = Ly.indptr
+    (ro,co) = Ly.shape
+    cdef int row = ro
+    cdef int col = co
+    cdef double alfa = a
+    cdef double beta = b 
+    
 
     # Mxy = np.dot(M,x)-y
     Mxy = M.dot(x) - y
-    # Lxx = np.dot(Lx,x)
-    Lxx = Lx.dot(x)
+    #
+    cdef double [:,:] Lxx = Lx.dot(x)
     # Lyx = np.dot(Ly,x)
-    Lyx = Ly.dot(x)
+    cdef double [:,:] Lyx = Ly.dot(x)
 
     #common = 1#np.exp(-s2 * np.dot(Mxy.T, Mxy)) * np.exp(-alfa * np.sum(np.sqrt(np.power(Lxx,2) + beta))) * np.exp(
     #   -alfa * np.sum(np.sqrt(np.power(Lyx,2) + beta)))
-    gr = -s2 * 2.0 * (M.T).dot(Mxy)
+    gr = -1.0/s2  * (M.T).dot(Mxy)
+    cdef double [:,:] grv = gr
+    cdef int i,j
+    cdef double s
 
 
     #exit(1)
-    for i in range(col):
+    for i in prange(col,nogil=True):
         s = 0
         for j in range(Lxptr[i],Lxptr[i+1]):
-            s = s - 2*Lxx[Lxindices[j]]/(alfa+Lxx[Lxindices[j]]**2)*Lxdata[j]
+            s = s - 2*Lxx[Lxindices[j],0]/(alfa+Lxx[Lxindices[j],0]**2)*Lxdata[j]
 
         #exit(0)
-        gr[i,0] = gr[i,0] + s
+        grv[i,0] = grv[i,0] + s
 
-    for i in range(col):
+    for i in prange(col,nogil=True):
         s = 0
         for j in range(Lyptr[i], Lyptr[i + 1]):
-            s = s - 2 * Lyx[Lyindices[j]] / (alfa + Lyx[Lyindices[j]] ** 2)*Lydata[j]
+            s = s - 2 * Lyx[Lyindices[j],0] / (alfa + Lyx[Lyindices[j],0] ** 2)*Lydata[j]
 
         # exit(0)
-        gr[i, 0] = gr[i, 0] +   s
+        grv[i, 0] = grv[i, 0] +   s
     return gr
 
 @cython.boundscheck(False) 
