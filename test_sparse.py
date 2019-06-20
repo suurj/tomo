@@ -37,7 +37,12 @@ import scipy.io
 # ifl = np.reshape(image,(-1,1))
 # ifl2 = np.reshape(image.T,(-1,1))
 # R = radon(image,theta=theta,circle=False)
-#
+M = sp.eye(40000,50000)
+N = sp.eye(50000)
+x = np.random.randn(50000,1)
+k = N.dot(x)
+j = M.dot(k)
+jj = M.dot(N).dot(x)
 # g = r-ifl
 # F=F@ifl
 # F = np.reshape(F,(81,50))

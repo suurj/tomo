@@ -3,7 +3,7 @@ import scipy.sparse as sp
 from skimage.transform import radon, rescale
 import numpy as np
 from scipy.sparse import csr_matrix,csc_matrix
-from autograd import grad
+#from autograd import grad
 import scipy
 from scipy.linalg import circulant
 from scipy.optimize import  minimize
