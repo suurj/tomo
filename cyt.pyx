@@ -469,7 +469,8 @@ cdef lhstep(double[:] Mdata, int[:] Mindices, int[:] Mptr,double [:,:] y,double[
 
 @cython.boundscheck(False)
 @cython.wraparound(False) 
-def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=1):
+@cython.cdivision(True)
+def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsigma=1.0):
     dimnumpy = y.shape[0]
     cdef int dim = dimnumpy
     x = x0
@@ -488,7 +489,7 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=
     cdef double alpha = regalpha
     cdef double samplingsigma = sampsigma
     cdef double beta = samplebeta
-    cdef double Ci = 1.0/lhsigma
+    cdef double Ci = 1.0/lhsigma**2.0
     
     cdef double[:] Mdata =  M.data
     cdef int[:] Mindices =  M.indices
@@ -539,11 +540,15 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=
     cdef double[:, :] xv = x
     cdef double[:, :] xcv = xc
     cdef double[:, :] yv = y
-    cdef double new,change, change2, change3, old
+    cdef double new,change, change2, change3, old,currentvalue,currentmean,previousmean,currentvar
     cdef double[:, :] chainv = chain
   
     cdef int k, start, stop
     cdef double[:] acceptv,number
+    chmean = np.ravel(x0)
+    chdev = np.zeros((dim,))
+    cdef double[:] chmeanv = chmean
+    cdef double[:]  chdevv = chdev
     #print(y)
     #print(w)
     #print(likelihood)
@@ -557,9 +562,12 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=
             for j in range(0,dim):
 
                 old = chainv[j,i-1]
-                #new = old + samplingsigma*number[j]
+                currentvalue = old
+                if (i > 70):
+                    samplingsigma = chdevv[j]
+                new = old + samplingsigma*number[j]
                 #print(new)
-                new = sqrt(1.0-beta*beta)*old + beta*samplingsigma*samplingsigma*number[j]
+                #new = sqrt(1.0-beta*beta)*old + beta*samplingsigma*samplingsigma*number[j]
                 #print(new)
 
                 change = 0
@@ -598,6 +606,7 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=
                 #print(pdf(xc)/pdf(x))
                 #chain2[j,i] = ratio
                 if(acceptv[j] <= ratio):
+                    currentvalue = new
                     chainv[j,i] = new
                     likelihood = likelihood + change
                     prior = prior + change2
@@ -628,6 +637,14 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=
 
                 else:
                     chainv[j,i] = old
+                    
+                previousmean = chmeanv[j]
+                currentmean = 1.0/(i+1.0)*(i*previousmean+currentvalue)
+                chmeanv[j] = currentmean
+                currentvar = (i-1.0)/(i)*chdevv[j]*chdevv[j] + 1.0/(i+1.0)*(currentvalue-previousmean)*(currentvalue-previousmean)
+                chdevv[j] = 2.4*sqrt(currentvar) + 10**(-12) 
+                with gil:
+                    print(currentvar,previousmean,currentmean)
                 #xc[j,0] = old
             #change = np.reshape(M[:,j]*(np.ravel(pr-x[j,0])),(-1,1))
             #change2 = np.reshape(L[:,j]*(np.ravel(pr-x[j,0])),(-1,1))
@@ -660,7 +677,7 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=
 @cython.boundscheck(False)
 @cython.wraparound(False) 
 @cython.cdivision(True)
-def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsigma=1):
+def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsigma=1.0):
     dimnumpy = y.shape[0]
     cdef int dim = dimnumpy
     x = x0
@@ -679,7 +696,7 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsi
     cdef double alpha = regalpha
     cdef double samplingsigma = sampsigma
     cdef double beta = samplebeta
-    cdef double Ci = 1.0/lhsigma
+    cdef double Ci = 1.0/lhsigma**2.0
     
     cdef double[:] Mdata =  M.data
     cdef int[:] Mindices =  M.indices
@@ -732,11 +749,16 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsi
     cdef double[:, :] xv = x
     cdef double[:, :] xcv = xc
     cdef double[:, :] yv = y
-    cdef double new,change, change2, change3, old
+    cdef double new,change, change2, change3, old,currentvalue,currentmean,previousmean,currentvar
     cdef double[:, :] chainv = chain
   
     cdef int k, start, stop
     cdef double[:] acceptv,number
+    chmean = np.ravel(x0)
+    chdev = np.zeros((dim,))
+    cdef double[:] chmeanv = chmean
+    cdef double[:]  chdevv = chdev
+    
     #print(y)
     #print(w)
     #print(likelihood)
@@ -750,9 +772,12 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsi
             for j in range(0,dim):
 
                 old = chainv[j,i-1]
-                #new = old + samplingsigma*samplingsigma*number[j]
+                currentvalue = old
+                if (i > 70):
+                    samplingsigma = chdevv[j]
+                new = old + samplingsigma*number[j]
                 #print(new)
-                new = sqrt(1.0-beta*beta)*old + beta*samplingsigma*samplingsigma*number[j]
+                #new = sqrt(1.0-beta*beta)*old + beta*samplingsigma*samplingsigma*number[j]
                 #print(new)
 
                 change = 0
@@ -797,6 +822,7 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsi
                 #chain2[j,i] = ratio
                 if(acceptv[j] <= ratio):
                     chainv[j,i] = new
+                    currentvalue = new
                     #likelihood = likelihood + change
                     #prior = prior + change2
                     #prior2 = prior2 + change3
@@ -826,6 +852,13 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1, samplebeta=0.3, sampsigma=1,lhsi
 
                 else:
                     chainv[j,i] = old
+                
+                previousmean = chmeanv[j]
+                currentmean = 1.0/(i+1.0)*(i*previousmean+currentvalue)
+                chmeanv[j] = currentmean
+                currentvar = (i-1.0)/(i)*chdevv[j]**2 + 1.0/(i+1.0)*(currentvalue-previousmean)**2
+                chdevv[j] = 2.4*sqrt(currentvar) + 10**(-12)
+                
                     #xc[j,0] = old
             #change = np.reshape(M[:,j]*(np.ravel(pr-x[j,0])),(-1,1))
             #change2 = np.reshape(L[:,j]*(np.ravel(pr-x[j,0])),(-1,1))

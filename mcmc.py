@@ -10,7 +10,19 @@ from scipy.optimize import  minimize
 from line_profiler import LineProfiler
 import  time
 import matplotlib.pyplot as plt
-from cyt import hmc,tv_grad,cauchy_grad,tikhonov_grad
+from cyt import hmc,tv_grad,cauchy_grad,tikhonov_grad,mwg_tv
+
+M = sp.eye(2,format='csc')
+Lx = sp.csc_matrix((2,2),dtype='double')
+Ly = sp.csc_matrix((2,2),dtype='double')
+y = np.zeros((2,2),dtype='double')
+x0 = np.array([[2,2]],dtype='double').T
+N = 100
+g = mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsigma=1.0)
+plt.plot(g[0,:],g[1,:],'*r')
+plt.show()
+
+exit(1)
 
 from numba import jit
 #@jit(nopython=True)
