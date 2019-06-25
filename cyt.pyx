@@ -564,7 +564,7 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsi
                 old = chainv[j,i-1]
                 currentvalue = old
                 if (i > 70):
-                    samplingsigma = chdevv[j]
+                    samplingsigma = 2.4*chdevv[j] + 10**(-12)
                 new = old + samplingsigma*number[j]
                 #print(new)
                 #new = sqrt(1.0-beta*beta)*old + beta*samplingsigma*samplingsigma*number[j]
@@ -642,9 +642,9 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsi
                 currentmean = 1.0/(i+1.0)*(i*previousmean+currentvalue)
                 chmeanv[j] = currentmean
                 currentvar = (i-1.0)/(i)*chdevv[j]*chdevv[j] + 1.0/(i+1.0)*(currentvalue-previousmean)*(currentvalue-previousmean)
-                chdevv[j] = 2.4*sqrt(currentvar) + 10**(-12) 
-                with gil:
-                    print(currentvar,previousmean,currentmean)
+                chdevv[j] = sqrt(currentvar) 
+                #with gil:
+                #    print(currentvar,previousmean,currentmean,currentvalue)
                 #xc[j,0] = old
             #change = np.reshape(M[:,j]*(np.ravel(pr-x[j,0])),(-1,1))
             #change2 = np.reshape(L[:,j]*(np.ravel(pr-x[j,0])),(-1,1))
@@ -774,7 +774,7 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,
                 old = chainv[j,i-1]
                 currentvalue = old
                 if (i > 70):
-                    samplingsigma = chdevv[j]
+                    samplingsigma = 2.4*chdevv[j] + 10**(-12)
                 new = old + samplingsigma*number[j]
                 #print(new)
                 #new = sqrt(1.0-beta*beta)*old + beta*samplingsigma*samplingsigma*number[j]
@@ -857,7 +857,7 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,
                 currentmean = 1.0/(i+1.0)*(i*previousmean+currentvalue)
                 chmeanv[j] = currentmean
                 currentvar = (i-1.0)/(i)*chdevv[j]**2 + 1.0/(i+1.0)*(currentvalue-previousmean)**2
-                chdevv[j] = 2.4*sqrt(currentvar) + 10**(-12)
+                chdevv[j] = sqrt(currentvar) 
                 
                     #xc[j,0] = old
             #change = np.reshape(M[:,j]*(np.ravel(pr-x[j,0])),(-1,1))

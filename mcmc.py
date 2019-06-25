@@ -10,15 +10,39 @@ from scipy.optimize import  minimize
 from line_profiler import LineProfiler
 import  time
 import matplotlib.pyplot as plt
-from cyt import hmc,tv_grad,cauchy_grad,tikhonov_grad,mwg_tv
+from cyt import hmc,tv_grad,cauchy_grad,tikhonov_grad,mwg_tv,mwg_cauchy
 
-M = sp.eye(2,format='csc')
+# f = 2*np.random.randn(1000,1)
+# m = np.zeros((1000,))
+# v = np.zeros((1000,1))
+# m[0] = f[0]
+# a = m[0]
+# c = 0
+#
+# for i in range(1,1000):
+#     au = 1 / (i+1) * ((i) * a + f[i])
+#     m[i] = au
+#     c = (i - 1) / (i) * v[i-1]*v[i-1] + 1 / i * (f[i] - a) ** 2;
+#     a = au;
+#     v[i] = 2.4*np.sqrt(c) + 10**-12;
+#
+# exit(1)
+
+#M = sp.eye(2,format='csc')
+M = np.array([[10, 0],[0,5]])
+M = np.linalg.inv(M)
+M = np.linalg.cholesky(M)
+M = sp.csc_matrix(M)
 Lx = sp.csc_matrix((2,2),dtype='double')
 Ly = sp.csc_matrix((2,2),dtype='double')
-y = np.zeros((2,2),dtype='double')
-x0 = np.array([[2,2]],dtype='double').T
-N = 100
-g = mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsigma=1.0)
+y = np.array([[10.0],[-10.0]],dtype='double')
+y = M.dot(y)
+x0 = np.array([[2,3]],dtype='double').T
+N = 10000
+g = mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=0.001,lhsigma=1.0)
+g = g[:,1000:]
+print(np.mean(g,axis=1))
+print(np.cov(g))
 plt.plot(g[0,:],g[1,:],'*r')
 plt.show()
 
