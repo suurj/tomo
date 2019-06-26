@@ -29,18 +29,18 @@ from cyt import hmc,tv_grad,cauchy_grad,tikhonov_grad,mwg_tv,mwg_cauchy
 # exit(1)
 
 #M = sp.eye(2,format='csc')
-M = np.array([[10, 0],[0,5]])
+M = np.array([[10, 0.9],[0.9,1]])
 M = np.linalg.inv(M)
 M = np.linalg.cholesky(M)
 M = sp.csc_matrix(M)
 Lx = sp.csc_matrix((2,2),dtype='double')
 Ly = sp.csc_matrix((2,2),dtype='double')
-y = np.array([[10.0],[-10.0]],dtype='double')
+y = np.array([[10.0],[-17.0]],dtype='double')
 y = M.dot(y)
 x0 = np.array([[2,3]],dtype='double').T
-N = 10000
+N = 100000
 g = mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=0.001,lhsigma=1.0)
-g = g[:,1000:]
+g = g[:,0:100]
 print(np.mean(g,axis=1))
 print(np.cov(g))
 plt.plot(g[0,:],g[1,:],'*r')
