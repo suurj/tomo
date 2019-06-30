@@ -349,7 +349,7 @@ def  radonmatrix(size,theta):
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True) 
-cdef double gs(double p,double t) nogil:
+cdef inline double gs(double p,double t) nogil:
     #cdef double pi = np.pi
     #cdef double sqrt2 = np.sqrt(2.0)
     cdef double x1m

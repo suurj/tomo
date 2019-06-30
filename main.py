@@ -59,7 +59,8 @@ class tomography:
 
         self.measurement = self.radonoperator @ self.flattened
         #self.measurement[self.measurement <= 0] = 10 ** (-19)
-        self.lines =  self.measurement + noise * np.random.randn(self.N_r * self.N_theta, 1)
+        max = np.max(self.measurement)
+        self.lines =  self.measurement + max*noise * np.random.randn(self.N_r * self.N_theta, 1)
         self.lhsigmsq = 0.5
 
     def map_tikhonov(self,alpha=1.0):
@@ -88,7 +89,7 @@ class tomography:
         #
 
         x0= 1+ 0.05*np.random.randn(self.dim * self.dim, 1)
-        solution = minimize(self.tfun_tikhonov,x0,method='Newton-CG',jac=self.grad_tikhonov,options={'maxiter':20, 'disp': True})
+        solution = minimize(self.tfun_tikhonov,x0,method='CG',jac=self.grad_tikhonov,options={'maxiter':20, 'disp': True})
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -131,7 +132,7 @@ class tomography:
         self.alpha = alpha
 
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, 1)
-        solution = minimize(self.tfun_tv, x0, method='Newton-CG', jac=self.grad_tv, options={'maxiter':20,'disp': True})
+        solution = minimize(self.tfun_tv, x0, method='L-BFGS-B', jac=self.grad_tv, options={'maxiter':230,'disp': True})
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -179,7 +180,7 @@ class tomography:
         #print(self.regx.shape)
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, 1)
 
-        solution = minimize(self.tfun_cauchy, x0, method='Newton-CG', jac=self.grad_cauchy, options={'maxiter':20,'disp': True})
+        solution = minimize(self.tfun_cauchy, x0, method='L-BFGS-B', jac=self.grad_cauchy, options={'maxiter':150,'disp': True})
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -222,20 +223,20 @@ class tomography:
 if __name__ == "__main__":
 
     np.random.seed(1)
-    t = tomography("shepp.png",0.2,20,0.2)
+    t = tomography("shepp.png",0.2,30,0.07)
     #t = tomography("shepp.png",0.1,20,0.2)
-    #r = t.map_tv(10.0)
+    #r = t.map_tv(19.48)
     # tt = time.time()
-    r=t.map_cauchy(0.1)
+    r=t.map_cauchy(0.05)
     # r = t.map_tikhonov(10.0)
     # print(time.time()-tt)
     #
-    # plt.imshow(r)
-    # plt.figure()
+    plt.imshow(r)
+    plt.figure()
     #q = iradon_sart(q, theta=theta)
     #r = t.map_tikhonov(10.0)
     #tt = time.time()
-    #r = t.map_tv(10.0)
+    r = t.map_tv(30.0)
     #print(time.time()-tt)
     plt.imshow(r)
     plt.show()
