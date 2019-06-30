@@ -13,7 +13,7 @@ import time
 @cython.cdivision(True)
 @cython.boundscheck(False) 
 @cython.wraparound(False)
-def tikhonov_grad(x,M, Lx, Ly, y, s2, a, b):
+def tikhonov_grad(x,M, Lx, Ly, y, s2, a, _):
     Mxy = M.dot(x) - y
     Lxx = Lx.dot(x) 
     Lyx = Ly.dot(x)
@@ -72,7 +72,7 @@ def tv_grad(x,M, Lx, Ly, y, s2, a, b):
 @cython.cdivision(True)
 @cython.boundscheck(False) 
 @cython.wraparound(False)
-def cauchy_grad(x,M, Lx, Ly, y, s2, a, b):
+def cauchy_grad(x,M, Lx, Ly, y, s2, a, _):
     cdef double [:] Lxdata =  Lx.data
     cdef int [:] Lxindices = Lx.indices
     cdef int [:] Lxptr = Lx.indptr
@@ -84,7 +84,7 @@ def cauchy_grad(x,M, Lx, Ly, y, s2, a, b):
     cdef int row = ro
     cdef int col = co
     cdef double alfa = a
-    cdef double beta = b 
+    #cdef double beta = b 
     
 
     # Mxy = np.dot(M,x)-y
@@ -377,12 +377,12 @@ cdef inline double gs(double p,double t) nogil:
    
         if (x1 < 1.0 and x1m  < 1.0):
             #a = 2/cos(t);
-            a = sqrt(4.0+(x1-x1m)**2.0)
+            a = sqrt(4.0+(x1-x1m)*(x1-x1m))
             return a
             #disp("TOO")
             
         elif (x1 < 1.0 and x1m  > 1.0):
-            a = sqrt((1.0-x1)**2.0 + (1.0-y1)**2.0)
+            a = sqrt((1.0-x1)*(1.0-x1) + (1.0-y1)*(1.0-y1))
             return a
             #disp('RRR')
             

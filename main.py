@@ -62,6 +62,7 @@ class tomography:
         max = np.max(self.measurement)
         self.lines =  self.measurement + max*noise * np.random.randn(self.N_r * self.N_theta, 1)
         self.lhsigmsq = 0.5
+        self.beta = 0.01
 
     def map_tikhonov(self,alpha=1.0):
         #col = np.block([[-1], [np.zeros((self.y - 2, 1))]])
@@ -89,7 +90,7 @@ class tomography:
         #
 
         x0= 1+ 0.05*np.random.randn(self.dim * self.dim, 1)
-        solution = minimize(self.tfun_tikhonov,x0,method='CG',jac=self.grad_tikhonov,options={'maxiter':20, 'disp': True})
+        solution = minimize(self.tfun_tikhonov,x0,method='L-BFGS-B',jac=self.grad_tikhonov,options={'maxiter':20, 'disp': True})
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -148,15 +149,15 @@ class tomography:
         Lxx = self.regx.dot(x)
         # Lyx = np.dot(Ly,x)
         Lyx = self.regy.dot(x)
-        q =  0.5/self.lhsigmsq * np.dot(Mxy.T, Mxy) + self.alpha * np.sum(np.sqrt(np.power(Lxx, 2) + 0.5)) + self.alpha * np.sum(
-            np.sqrt(np.power(Lyx, 2) + 0.5))
+        q =  0.5/self.lhsigmsq * np.dot(Mxy.T, Mxy) + self.alpha * np.sum(np.sqrt(np.power(Lxx, 2) + self.beta)) + self.alpha * np.sum(
+            np.sqrt(np.power(Lyx, 2) + self.beta))
         return (np.ravel(q))
         #return r
 
     def grad_tv(self, x):
         x = x.reshape((-1, 1))
         # print(self.radonoperator.shape,x.shape)
-        q = -tv_grad(x, self.radonoperator, self.regx, self.regy, self.lines, self.lhsigmsq, self.alpha, 0.5)
+        q = -tv_grad(x, self.radonoperator, self.regx, self.regy, self.lines, self.lhsigmsq, self.alpha, self.beta)
         #print(np.ravel(q))
         return (np.ravel(q))
 
@@ -206,13 +207,8 @@ class tomography:
         #print(np.ravel(q))
         return (np.ravel(q))
 
-    def plot(self):
-        #self.q = self.radonoperator @ self.flattened
-        #self.q = np.reshape(self.q, (self.N_r, self.N_theta))
-        # qr =  radon(image, theta,circle=True)
-        # q = iradon_sart(q, theta=theta)
-        plt.imshow(self.image, cmap="gray")
-        plt.show()
+    def target(self):
+        return self.image
 
     def radonww(self,image,theta,circle=True):
         with warnings.catch_warnings():
@@ -222,21 +218,22 @@ class tomography:
 
 if __name__ == "__main__":
 
-    np.random.seed(1)
-    t = tomography("shepp.png",0.2,30,0.07)
+    #np.random.seed(1)
+    t = tomography("shepp128.png",1.0,15,0.05)
     #t = tomography("shepp.png",0.1,20,0.2)
     #r = t.map_tv(19.48)
     # tt = time.time()
-    r=t.map_cauchy(0.05)
+    r=t.map_cauchy(0.01)
     # r = t.map_tikhonov(10.0)
     # print(time.time()-tt)
     #
     plt.imshow(r)
     plt.figure()
     #q = iradon_sart(q, theta=theta)
-    #r = t.map_tikhonov(10.0)
+    #r = t.map_tikhonov(50.0)
     #tt = time.time()
-    r = t.map_tv(30.0)
+    #r = t.target()
+    r = t.map_tv(5.0)
     #print(time.time()-tt)
     plt.imshow(r)
     plt.show()

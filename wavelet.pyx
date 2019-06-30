@@ -73,10 +73,10 @@ def waveletonce(g,h,n):
         Gdata.pop_front()
     
     
-    GG=coo_matrix((Gcoo_data, (coo_row, coo_col)), shape=(nhalf,n))
+    G=coo_matrix((Gcoo_data, (coo_row, coo_col)), shape=(nhalf,n))
     #GG = csc_matrix(GG)
-    HH=coo_matrix((Hcoo_data, (coo_row, coo_col)), shape=(nhalf,n))
+    H=coo_matrix((Hcoo_data, (coo_row, coo_col)), shape=(nhalf,n))
     #HH = csc_matrix(HH)
-    P = sp.vstack([HH,GG],format='csc')
+    #P = sp.vstack([HH,GG],format='csc')
     
-    return P        
+    return (G,H)        
