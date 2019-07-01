@@ -10,7 +10,7 @@ from scipy.optimize import  minimize
 import time
 import math
 import scipy.sparse as sp
-from cyt import  radonmatrix
+from matrices import  radonmatrix
 import os
 import matplotlib.pyplot as plt
 from cyt import tv_grad,cauchy_grad,tikhonov_grad
@@ -219,7 +219,7 @@ class tomography:
 if __name__ == "__main__":
 
     #np.random.seed(1)
-    t = tomography("shepp128.png",1.0,15,0.05)
+    t = tomography("shepp128.png",1.0,10,0.05)
     #t = tomography("shepp.png",0.1,20,0.2)
     #r = t.map_tv(19.48)
     # tt = time.time()

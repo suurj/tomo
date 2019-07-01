@@ -2,7 +2,7 @@ import numpy as np
 from skimage.io import imread
 import matplotlib.pyplot as plt
 import  pywt
-from wavelet import waveletonce
+from matrices import waveletonce
 from skimage.transform import rescale
 import scipy.sparse as sp
 from scipy.sparse import csr_matrix,csc_matrix,lil_matrix, coo_matrix, dok_matrix
