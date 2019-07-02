@@ -3,16 +3,58 @@ import numpy as np
 import scipy.sparse as sp
 #import autograd_sparse as sp
 #import autograd.numpy as np
-from autograd import grad
+from sys import getsizeof
 from skimage.transform import radon, rescale
 from scipy.sparse import csr_matrix,csc_matrix,lil_matrix, coo_matrix, dok_matrix
-from cyt import  radonmatrix, mwg_cauchy,mwg_tv
+from cyt import mwg_cauchy,mwg_tv, argumentspack
+import copy
 import math
 import time
 from skimage.io import imread
 import matplotlib.pyplot as plt
 from skimage.transform import iradon_sart
 import scipy.io
+from timeit import timeit
+from matrices import radonmatrix
+from collections import namedtuple
+from cplus import f
+t = np.linspace(0,2*np.pi,50)
+radonmatrix(164,t,7)
+#f(1)
+
+# K = argumentspack(M=1,y=2.0)
+# L = copy.copy(K)
+# L.M = 2
+# print(K.M)
+
+# STest = namedtuple("kokeilu", "a b")
+# class koe:
+#     def __init__(self):
+#         self.a = 1.0
+#         self.b = -2.0
+#
+# class koe2:
+#     __slots__ = ['a', 'b']
+#     def __init__(self):
+#         self.a = 1.0
+#         self.b = -2.0
+#
+# if __name__ == '__main__':
+#     k = koe()
+#     kk = koe2()
+#     aa = STest(a=1.0, b=-2.0)
+#     m = [1.0, -2.0]
+#     l = (1.0,-2.0)
+#     kk.b = 1110
+#     k.c = 33
+#     print(getsizeof(kk))
+    #print  (timeit("z = k.a", setup="from __main__ import k"))
+    #print(timeit("z = kk.a", setup="from __main__ import kk"))
+    #print(timeit("z = aa[0]", setup="from __main__ import aa"))
+    #print(timeit("z = aa.a", setup="from __main__ import aa"))
+    # print(timeit("z = m[0]", setup="from __main__ import m"))
+
+
 # K = lil_matrix((5,5))
 # K[:,1] = np.array([[1,1,1,1,1]]).T
 # exit(1)
@@ -37,13 +79,13 @@ import scipy.io
 # ifl = np.reshape(image,(-1,1))
 # ifl2 = np.reshape(image.T,(-1,1))
 # R = radon(image,theta=theta,circle=False)
-M = sp.eye(40000,50000)
-N = sp.eye(50000)
-x = np.random.randn(50000,1)
-k = N.dot(x)
-j = M.dot(k)
-jj = M.dot(N).dot(x)
-# g = r-ifl
+# M = sp.eye(40000,50000)
+# N = sp.eye(50000)
+# x = np.random.randn(50000,1)
+# k = N.dot(x)
+# j = M.dot(k)
+# jj = M.dot(N).dot(x)
+# # g = r-ifl
 # F=F@ifl
 # F = np.reshape(F,(81,50))
 # M=M@ifl
@@ -70,7 +112,7 @@ jj = M.dot(N).dot(x)
 # reg1d = reg1d.toarray()
 # regy=regy.toarray()
 # regx = regx.toarray()
-exit(0)
+#exit(0)
 
 
 # regvalues = np.array([1,-1,1])

@@ -9,11 +9,27 @@ from libc.math cimport sqrt,fabs,exp, cos, tan,sin,M_SQRT2,M_PI,abs
 from libcpp.list cimport list as cpplist
 import time
 
+class argumentspack():
+    __slots__ = ['M', 'Lx', 'Ly', 'y', 's2', 'a' ,'b']
+    def __init__(self,M=None, Lx=None, Ly=None, y=None, s2=1.0, a=1.0, b=0.01):
+        self.M = M
+        self.Lx = Lx
+        self.Ly = Ly
+        self.y = y
+        self.s2 = s2
+        self.a = a
+        self.b = b
 
 @cython.cdivision(True)
 @cython.boundscheck(False) 
 @cython.wraparound(False)
-def tikhonov_grad(x,M, Lx, Ly, y, s2, a, _):
+def tikhonov_grad(x,Q):
+    M = Q.M
+    Lx = Q.Lx
+    Ly = Q.Ly
+    a = Q.a
+    s2 = Q.s2
+    y = Q.y
     Mxy = M.dot(x) - y
     Lxx = Lx.dot(x) 
     Lyx = Ly.dot(x)
@@ -22,7 +38,14 @@ def tikhonov_grad(x,M, Lx, Ly, y, s2, a, _):
 @cython.cdivision(True)
 @cython.boundscheck(False) 
 @cython.wraparound(False)
-def tv_grad(x,M, Lx, Ly, y, s2, a, b):
+def tv_grad(x,Q):
+    M = Q.M
+    Lx = Q.Lx
+    Ly = Q.Ly
+    a = Q.a
+    s2 = Q.s2
+    y = Q.y
+    b = Q.b
     cdef double [:] Lxdata =  Lx.data
     cdef int [:] Lxindices = Lx.indices
     cdef int [:] Lxptr = Lx.indptr
@@ -72,7 +95,13 @@ def tv_grad(x,M, Lx, Ly, y, s2, a, b):
 @cython.cdivision(True)
 @cython.boundscheck(False) 
 @cython.wraparound(False)
-def cauchy_grad(x,M, Lx, Ly, y, s2, a, _):
+def cauchy_grad(x,Q):
+    M = Q.M
+    Lx = Q.Lx
+    Ly = Q.Ly
+    a = Q.a
+    s2 = Q.s2
+    y = Q.y
     cdef double [:] Lxdata =  Lx.data
     cdef int [:] Lxindices = Lx.indices
     cdef int [:] Lxptr = Lx.indptr

@@ -7,7 +7,58 @@ from scipy.sparse import csr_matrix,csc_matrix,coo_matrix
 import math
 from libc.math cimport sqrt,fabs,exp, cos, tan,sin,M_SQRT2,M_PI,abs
 from libcpp.list cimport list as cpplist
+from libcpp.deque cimport deque
+from libcpp.vector cimport vector
 import time
+from cython.parallel import threadid as thid
+from libc.stdlib cimport malloc 
+
+def totalmatrix(n,levels,g,h):
+    if (levels<1 or np.mod(n,2**levels) != 0 ):
+        raise Exception('DWT level mismatch.')
+
+    Gs = []
+    Hs = []
+    Hprev = []
+    for i in range(0,levels):
+        Gi, Hi = waveletonce(g, h, int(n/(2**(i))))
+        Gs.append(Gi)
+        Hs.append(Hi)
+        if (len(Hprev) == 0):
+            Hprev.append(Hi)
+        else:
+            Hprev.append(Hi.dot(Hprev[i-1]))
+
+    for i in range(0,levels-1):
+        if (i == 0):
+            M = sp.kron(Gs[i],Gs[i])
+            M = sp.vstack((sp.kron(Gs[0],Hs[0]),M))
+            M = sp.vstack((sp.kron(Hs[0], Gs[0]), M))
+        else:
+            p = Hprev[i-1]
+            gp = Gs[i].dot(p)
+            hp = Hs[i].dot(p)
+            M = sp.vstack((sp.kron(gp,gp),M))
+            M = sp.vstack((sp.kron(gp, hp), M))
+            M = sp.vstack((sp.kron(hp, gp), M))
+
+    if (levels ==1):
+        gp = Gs[0]
+        hp = Hs[0]
+        M = sp.kron(gp, gp)
+        M = sp.vstack((sp.kron(gp, hp), M))
+        M = sp.vstack((sp.kron(hp, gp), M))
+        M = sp.vstack((sp.kron(hp, hp), M))
+    else:
+        p = Hprev[levels - 2]
+        gp = Gs[levels-1].dot(p)
+        hp = Hs[levels-1].dot(p)
+        M = sp.vstack((sp.kron(gp, gp), M))
+        M = sp.vstack((sp.kron(gp, hp), M))
+        M = sp.vstack((sp.kron(hp, gp), M))
+        M = sp.vstack((sp.kron(hp, hp), M))
+
+    return  csc_matrix(M)
 
 @cython.cdivision(True)
 @cython.boundscheck(False) 
@@ -33,10 +84,10 @@ def waveletonce(g,h,n):
     cdef double [:] fgv  = fg
     cdef double [:] fhv  = fh
     cdef int row, col, i,c
-    cdef cpplist[int] Wrow
-    cdef cpplist[int] Wcol
-    cdef cpplist[double] Gdata
-    cdef cpplist[double] Hdata
+    cdef vector[int] Wrow
+    cdef vector[int] Wcol
+    cdef vector[double] Gdata
+    cdef vector[double] Hdata
     with nogil:
         for row in range(0,nhalf):
             for col in range (0,fl):
@@ -61,16 +112,16 @@ def waveletonce(g,h,n):
     cdef double [:] Gcoo_datav  = Gcoo_data
 
     for i in range(Nel):
-        coo_rowv[i] = Wrow.front()
-        Wrow.pop_front()
+        coo_rowv[i] = Wrow.back()
+        Wrow.pop_back()
         
-        coo_colv[i] = Wcol.front()
-        Wcol.pop_front()
+        coo_colv[i] = Wcol.back()
+        Wcol.pop_back()
 
-        Hcoo_datav[i] = Hdata.front()
-        Hdata.pop_front()
-        Gcoo_datav[i] = Gdata.front()
-        Gdata.pop_front()
+        Hcoo_datav[i] = Hdata.back()
+        Hdata.pop_back()
+        Gcoo_datav[i] = Gdata.back()
+        Gdata.pop_back()
     
     
     G=coo_matrix((Gcoo_data, (coo_row, coo_col)), shape=(nhalf,n))
@@ -81,14 +132,30 @@ def waveletonce(g,h,n):
     
     return (G,H)  
 
-
+ctypedef vector[int]* diptr
+ctypedef vector[double]* dfptr
 @cython.boundscheck(False) 
 #@cython.wraparound(False)
 @cython.cdivision(True) 
-def  radonmatrix(size,theta):
-    cdef cpplist[int] row
-    cdef cpplist[int] col
-    cdef cpplist[double] data
+def  radonmatrix(size,theta,Nthreads=4):
+    #cdef vector[int] row
+    #cdef vector[int] col
+    #cdef vector[double] data
+    
+    cdef int Nth = Nthreads
+    cdef int i
+    
+    mrows = new vector[diptr](Nth)
+    mcols = new vector[diptr](Nth)
+    mdata = new vector[dfptr](Nth)
+    row = mrows[0]
+    col = mcols[0]
+    data = mdata[0]
+    
+    for i in range(Nth):
+        row[i] = new vector[int]()
+        col[i] = new vector[int]()
+        data[i] = new vector[double]()
     
     cdef int T = theta.shape[0]
     cdef int N = size
@@ -105,15 +172,16 @@ def  radonmatrix(size,theta):
     cdef double pmax = (R-1.0)/2.0*dp
     cdef double tmax = theta[-1]
     cdef double tt,ray,dt
-    cdef int t,m,n,r,i
+    cdef int t,m,n,r,th
     if (T == 1):
         dt = 0
     else:
         dt = theta[1]-theta[0]
+        
     
     start = time.time() 
     with nogil:                     
-        for r in range (0,R):
+        for r in prange (0,R,num_threads=Nth):
             for t in range (0,T):
                 tt = tmax - t*dt
                 for n in range (0,N):
@@ -127,9 +195,10 @@ def  radonmatrix(size,theta):
                         ray = ray + dx/2.0 * gs(2.0*(pmax-r*dp-dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
                         ray = ray/4.0
                         if(ray > 0.0):
-                            row.push_back(r*T+t)
-                            col.push_back(n*M+m)
-                            data.push_back(ray)
+                            th = thid()
+                            row[th].push_back(r*T+t)
+                            col[th].push_back(n*M+m)
+                            data[th].push_back(ray)
                     #A(r*T + t+1, n*M+m+1) = 
 
             
@@ -142,8 +211,11 @@ def  radonmatrix(size,theta):
     #    row.push_back(x)
     #    col.push_back(x+1)
     #    data.push_back(2.0)
+    cdef int Nel = 0
+    for i in range(0,Nth):
+        Nel = Nel + row[i].size()
 
-    cdef int Nel = row.size()
+    #cdef int Nel = row.size()
     coo_row  = np.zeros((Nel,),dtype=np.int32)
     cdef int [:] coo_rowv  = coo_row
     coo_col  = np.zeros((Nel,),dtype=np.int32)
@@ -153,15 +225,18 @@ def  radonmatrix(size,theta):
 
     #front = temp.front()
     #pop_front = temp.pop_front()
-    for i in range(Nel):
-        coo_rowv[i] = row.front()
-        row.pop_front()
-        
-        coo_colv[i] = col.front()
-        col.pop_front()
+    i = 0
+    for j in range(0,Nth):
+        for k in range(row[j].size()):
+            coo_rowv[i] = row[j].back()
+            row[j].pop_back()
 
-        coo_datav[i] = data.front()
-        data.pop_front()
+            coo_colv[i] = col[j].back()
+            col[j].pop_back()
+
+            coo_datav[i] = data[j].back()
+            data[j].pop_back()
+            i = i + 1
 
     #return (coo_data,coo_row,coo_col)
     #dd = np.array([2,3,4])

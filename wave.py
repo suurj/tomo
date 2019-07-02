@@ -2,57 +2,57 @@ import numpy as np
 from skimage.io import imread
 import matplotlib.pyplot as plt
 import  pywt
-from matrices import waveletonce
+from matrices import waveletonce,totalmatrix
 from skimage.transform import rescale
 import scipy.sparse as sp
 from scipy.sparse import csr_matrix,csc_matrix,lil_matrix, coo_matrix, dok_matrix
 
-def totalmatrix(n,levels,g,h):
-    if (levels<1 or np.mod(n,2**levels) != 0 ):
-        raise Exception('DWT level mismatch.')
-
-    Gs = []
-    Hs = []
-    Hprev = []
-    for i in range(0,levels):
-        Gi, Hi = waveletonce(g, h, int(n/2**(i)))
-        Gs.append(Gi)
-        Hs.append(Hi)
-        if (len(Hprev) == 0):
-            Hprev.append(Hi)
-        else:
-            Hprev.append(Hi.dot(Hprev[i-1]))
-
-    for i in range(0,levels-1):
-        if (i == 0):
-            M = sp.kron(G[i],G[i])
-            M = sp.vstack((sp.kron(G,H),M))
-            M = sp.vstack((sp.kron(H, G), M))
-        else:
-            p = Hprev[i-1]
-            gp = Gs[i].dot(p)
-            hp = Hs[i].dot(p)
-            M = sp.vstack((sp.kron(gp,gp),M))
-            M = sp.vstack((sp.kron(gp, hp), M))
-            M = sp.vstack((sp.kron(hp, gp), M))
-
-    if (levels ==1):
-        gp = Gs[0]
-        hp = Hs[0]
-        M = sp.kron(gp, gp)
-        M = sp.vstack((sp.kron(gp, hp), M))
-        M = sp.vstack((sp.kron(hp, gp), M))
-        M = sp.vstack((sp.kron(hp, hp), M))
-    else:
-        p = Hprev[levels - 2]
-        gp = Gs[levels-1].dot(p)
-        hp = Hs[levels-1].dot(p)
-        M = sp.vstack((sp.kron(gp, gp), M))
-        M = sp.vstack((sp.kron(gp, hp), M))
-        M = sp.vstack((sp.kron(hp, gp), M))
-        M = sp.vstack((sp.kron(hp, hp), M))
-
-    return  csc_matrix(M)
+# def totalmatrix(n,levels,g,h):
+#     if (levels<1 or np.mod(n,2**levels) != 0 ):
+#         raise Exception('DWT level mismatch.')
+#
+#     Gs = []
+#     Hs = []
+#     Hprev = []
+#     for i in range(0,levels):
+#         Gi, Hi = waveletonce(g, h, int(n/2**(i)))
+#         Gs.append(Gi)
+#         Hs.append(Hi)
+#         if (len(Hprev) == 0):
+#             Hprev.append(Hi)
+#         else:
+#             Hprev.append(Hi.dot(Hprev[i-1]))
+#
+#     for i in range(0,levels-1):
+#         if (i == 0):
+#             M = sp.kron(G[i],G[i])
+#             M = sp.vstack((sp.kron(G,H),M))
+#             M = sp.vstack((sp.kron(H, G), M))
+#         else:
+#             p = Hprev[i-1]
+#             gp = Gs[i].dot(p)
+#             hp = Hs[i].dot(p)
+#             M = sp.vstack((sp.kron(gp,gp),M))
+#             M = sp.vstack((sp.kron(gp, hp), M))
+#             M = sp.vstack((sp.kron(hp, gp), M))
+#
+#     if (levels ==1):
+#         gp = Gs[0]
+#         hp = Hs[0]
+#         M = sp.kron(gp, gp)
+#         M = sp.vstack((sp.kron(gp, hp), M))
+#         M = sp.vstack((sp.kron(hp, gp), M))
+#         M = sp.vstack((sp.kron(hp, hp), M))
+#     else:
+#         p = Hprev[levels - 2]
+#         gp = Gs[levels-1].dot(p)
+#         hp = Hs[levels-1].dot(p)
+#         M = sp.vstack((sp.kron(gp, gp), M))
+#         M = sp.vstack((sp.kron(gp, hp), M))
+#         M = sp.vstack((sp.kron(hp, gp), M))
+#         M = sp.vstack((sp.kron(hp, hp), M))
+#
+#     return  csc_matrix(M)
 
 
 type = 'db5'
