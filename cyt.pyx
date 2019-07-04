@@ -10,8 +10,8 @@ from libcpp.list cimport list as cpplist
 import time
 
 class argumentspack():
-    __slots__ = ['M', 'Lx', 'Ly', 'y', 's2', 'a' ,'b']
-    def __init__(self,M=None, Lx=None, Ly=None, y=None, s2=1.0, a=1.0, b=0.01):
+    __slots__ = ['M', 'Lx', 'Ly', 'y', 's2', 'a' ,'b', 'logdensity', 'gradi']
+    def __init__(self,logdensity= lambda x,Q: 1,gradi = lambda x,Q: 0,M=None, Lx=None, Ly=None, y=0, s2=1.0, a=1.0, b=0.01):
         self.M = M
         self.Lx = Lx
         self.Ly = Ly
@@ -19,6 +19,55 @@ class argumentspack():
         self.s2 = s2
         self.a = a
         self.b = b
+        self.logdensity = logdensity
+        self.gradi = gradi
+        
+@cython.cdivision(True)
+@cython.boundscheck(False) 
+@cython.wraparound(False)        
+def tfun_cauchy( x,Q):
+    x = np.reshape(x, (-1, 1))
+    Mxy = Q.M.dot(x) - Q.y
+    Lxx = Q.Lx.dot(x)
+    # Lyx = np.dot(Ly,x)
+    Lyx = Q.Ly.dot(x)
+    alpha = Q.a
+    return   -0.5/Q.s2*Mxy.T.dot( Mxy) - np.sum(np.log(alpha + np.multiply(Lxx,Lxx))) - np.sum(
+        np.log(alpha + np.multiply(Lyx,Lyx))) 
+    
+    #return   -0.5/Q.s2*np.dot(Mxy.T, Mxy) - np.sum(np.log(alpha + np.multiply(Lxx,Lxx))) - np.sum(
+    #    np.log(alpha + np.multiply(Lyx,Lyx)))         
+
+
+@cython.cdivision(True)
+@cython.boundscheck(False) 
+@cython.wraparound(False) 
+def tfun_tv( x,Q):
+    x = np.reshape(x, (-1, 1))
+    Mxy = Q.M.dot(x) - Q.y
+    Lxx = Q.Lx.dot(x)
+    # Lyx = np.dot(Ly,x)
+    Lyx = Q.Ly.dot(x)
+    alpha = Q.a
+    beta = Q.b
+    q =  -0.5/Q.s2*Mxy.T.dot( Mxy) - alpha * np.sum(np.sqrt(np.multiply(Lxx,Lxx) + beta)) - alpha * np.sum(
+        np.sqrt(np.multiply(Lyx,Lyx) + beta))
+    return (np.ravel(q))  
+
+
+@cython.cdivision(True)
+@cython.boundscheck(False) 
+@cython.wraparound(False) 
+def tfun_tikhonov(x,Q):
+    x = np.reshape(x, (-1, 1))
+    Mxy = Q.M.dot(x) - Q.y
+    Lxx = Q.Lx.dot(x)
+    # Lyx = np.dot(Ly,x)
+    Lyx = Q.Ly.dot(x)
+    alpha = Q.a
+    return -0.5/Q.s2*Mxy.T.dot( Mxy) - alpha*np.dot(Lxx.T,Lxx) - alpha*np.dot(Lyx.T,Lyx)
+    #return np.sum(np.array([a,b1,b2]))
+      
 
 @cython.cdivision(True)
 @cython.boundscheck(False) 
@@ -78,7 +127,7 @@ def tv_grad(x,Q):
     for i in prange(col,nogil=True):
         s = 0
         for j in range(Lxptr[i],Lxptr[i+1]):
-            s = s - Lxdata[j]*Lxx[Lxindices[j],0]/sqrt(Lxx[Lxindices[j],0]**2 + beta)
+            s = s - Lxdata[j]*Lxx[Lxindices[j],0]/sqrt(Lxx[Lxindices[j],0]*Lxx[Lxindices[j],0] + beta)
 
         #exit(0)
         grv[i,0] = grv[i,0] + alfa*s
@@ -86,7 +135,7 @@ def tv_grad(x,Q):
     for i in prange(col,nogil=True):
         s = 0
         for j in range(Lyptr[i], Lyptr[i + 1]):
-            s = s - Lydata[j] * Lyx[Lyindices[j],0] / sqrt(Lyx[Lyindices[j],0] ** 2 + beta)
+            s = s - Lydata[j] * Lyx[Lyindices[j],0] / sqrt(Lyx[Lyindices[j],0] *Lyx[Lyindices[j],0] + beta)
 
         # exit(0)
         grv[i, 0] = grv[i, 0] + alfa * s 
@@ -113,10 +162,7 @@ def cauchy_grad(x,Q):
     cdef int row = ro
     cdef int col = co
     cdef double alfa = a
-    #cdef double beta = b 
-    
 
-    # Mxy = np.dot(M,x)-y
     Mxy = M.dot(x) - y
     #
     cdef double [:,:] Lxx = Lx.dot(x)
@@ -135,7 +181,7 @@ def cauchy_grad(x,Q):
     for i in prange(col,nogil=True):
         s = 0
         for j in range(Lxptr[i],Lxptr[i+1]):
-            s = s - 2*Lxx[Lxindices[j],0]/(alfa+Lxx[Lxindices[j],0]**2)*Lxdata[j]
+            s = s - 2*Lxx[Lxindices[j],0]/(alfa+Lxx[Lxindices[j],0]*Lxx[Lxindices[j],0])*Lxdata[j]
 
         #exit(0)
         grv[i,0] = grv[i,0] + s
@@ -143,7 +189,7 @@ def cauchy_grad(x,Q):
     for i in prange(col,nogil=True):
         s = 0
         for j in range(Lyptr[i], Lyptr[i + 1]):
-            s = s - 2 * Lyx[Lyindices[j],0] / (alfa + Lyx[Lyindices[j],0] ** 2)*Lydata[j]
+            s = s - 2 * Lyx[Lyindices[j],0] / (alfa + Lyx[Lyindices[j],0] *Lyx[Lyindices[j],0])*Lydata[j]
 
         # exit(0)
         grv[i, 0] = grv[i, 0] +   s
@@ -151,124 +197,138 @@ def cauchy_grad(x,Q):
 
 @cython.boundscheck(False) 
 @cython.wraparound(False)
-def gradi(x,A):
-    return -0.5*2*((A[0].T).dot(A[0])).dot(x)
-    #*np.exp(-0.5*np.dot(res.T,res))
-    #return np.reshape(-np.matmul(np.matmul(A[0].T,A[0]),x),(-1,1))
-
-
-def logdensity(theta,A):
-    #print(A[0].dot(theta))
-    #print(-1* np.dot(A[0].dot(theta).T, A[0].dot(theta)),theta)
-    return -0.5* np.dot(A[0].dot(theta).T, A[0].dot(theta))
-    #return 2 * np.dot((np.dot(A[0], theta)).T , (np.dot(A[0], theta)))
-    #return np.exp(-0.5*(np.dot(A,theta)).T@(np.dot(A,theta)) - 0.5 * np.dot(r.T, r))
-    #return np.exp(np.log(pdf(theta)) - 0.5 * np.dot(r.T, r))
-    #return np.exp(np.log(pdf(theta))-0.5*np.dot(r.T,r))
-
-
-def leapfrog(theta,r,epsilon,A):
-    r = r + (epsilon/2.0)*gradi(theta,A)
+@cython.cdivision(True)
+def leapfrog(theta,r,epsilon,Q,currgrad):
+    r = r + epsilon*0.5*currgrad
     theta = theta + epsilon*r
-    r = r + (epsilon/2.0)*gradi(theta,A)
+    currdensity = Q.logdensity(theta,Q)
+    currgrad = Q.gradi(theta, Q)
+    r = r + epsilon*0.5*currgrad
     #print(theta)
-    return (theta,r)
+    return (theta,r,currdensity,currgrad)
 
 
-def initialeps(theta,A):
-    def totalenergy(x, r, A):
+def initialeps(theta,Q,currdensity,currgrad):
+    def totalenergy( r, cd):
         # return np.exp(-1/2*x.T@Q@x)
         # return np.exp(-1/2*np.sum(np.power(R@x,2)))
-        energy = (logdensity(x, A) - 0.5 * np.dot(r.T, r))
+        energy = (cd - 0.5 * np.dot(r.T, r))
         # if (x[0] > 10):
         #    print(x)
         return energy
     eps = 1.0
     r = np.random.randn(theta.shape[0],1)
-    (theta2,r2) = leapfrog(theta,r,eps,A)
-    a = 2.0*(np.exp(totalenergy(theta2,r2,A) - totalenergy(theta,r,A)) > 0.5) -1.0
-    print(totalenergy(theta2,r2,A) - totalenergy(theta,r,A),a)
+    (theta2,r2,currdensity2,currgrad2) = leapfrog(theta,r,eps,Q,currgrad)
+    a = 2.0*(np.exp(totalenergy(r2,currdensity2) - totalenergy(r,currdensity)) > 0.5) -1.0
+    #print(totalenergy(theta2,r2,Q) - totalenergy(theta,r,Q),a)
 
-    while  a * (totalenergy(theta2,r2,A) - totalenergy(theta,r,A)) > -a * np.log(2):
+    while  a * (totalenergy(r2,currdensity2) - totalenergy(r,currdensity)) > -a * np.log(2):
         eps = 2.0**(a)*eps
-        (theta2,r2) = leapfrog(theta,r,eps,A)
+        (theta2,r2,currdensity2,currgrad2) = leapfrog(theta,r,eps,Q,currgrad)
+    print(eps)
     return eps
 
-
-def buildtree(theta,r,u,v,j,epsilon,theta0,r0,A):
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+@cython.cdivision(True)  
+def buildtree(theta,r,u,v,j,epsilon,theta0,r0,Q,initialdr,currgrad):
     if (j==0):
-        thetatilde, rtilde = leapfrog(theta,r,v*epsilon,A)
-        ldensitytilde = logdensity(thetatilde,A)
-        ldensity = logdensity(theta0,A)
+        thetatilde, rtilde, currdensitytilde,currgradtilde = leapfrog(theta,r,v*epsilon,Q,currgrad)
+        #ldensitytilde = Q.logdensity(thetatilde,Q)
+        #ldensity = Q.logdensity(theta0,Q)
         logu = np.log(u)
-        diff =np.exp(ldensitytilde - 0.5*np.dot(rtilde.T,rtilde) - ldensity + 0.5*np.dot(r0.T,r0))
-
-        ntilde = float(logu <= (ldensitytilde - 0.5*np.dot(rtilde.T,rtilde) )  )
-        stilde = float(logu < (1000.0+ldensitytilde - 0.5*np.dot(rtilde.T,rtilde) )  )
-        return thetatilde,rtilde,thetatilde,rtilde,thetatilde,ntilde,stilde,np.min(np.array([1,diff])),1
+        #print(currdensity)
+        #print(initialdr)
+        diff = np.min(np.array([np.exp(currdensitytilde - 0.5*np.dot(rtilde.T,rtilde) -initialdr),1]))
+        ntilde = int(logu <= (currdensitytilde - 0.5*np.dot(rtilde.T,rtilde) )  )
+        stilde = int(logu < (1000.0+currdensitytilde - 0.5*np.dot(rtilde.T,rtilde) )  )
+        #print(diff)
+        return thetatilde,rtilde,thetatilde,rtilde,thetatilde,ntilde,stilde,diff,1,currdensitytilde,currgradtilde,currgradtilde,currgradtilde
 
     else:
-        thetaminus,rminus,thetaplus,rplus,thetatilde,ntilde,stilde,alfatilde,nalfatilde = buildtree(theta,r,u,v,j-1,epsilon,theta0,r0,A)
+        thetaminus,rminus,thetaplus,rplus,thetatilde,ntilde,stilde,alfatilde,nalfatilde,currdensitytilde,currgradtilde,gradplus,gradminus = buildtree(theta,r,u,v,j-1,epsilon,theta0,r0,Q,initialdr,currgrad)
 
         if(stilde == 1):
             if(v == -1):
-                thetaminus, rminus, _, _, thetatildetilde, ntildetilde, stildetilde, alfatildetilde, nalfatildetilde = buildtree(
-                    thetaminus, rminus, u, v, j - 1, epsilon, theta0, r0,A)
+                thetaminus, rminus, _, _, thetatildetilde, ntildetilde, stildetilde, alfatildetilde, nalfatildetilde,currdensitytildetilde,currgradtildetilde,_,gradminus = buildtree(
+                    thetaminus, rminus, u, v, j - 1, epsilon, theta0, r0,Q,initialdr,gradminus)
             else:
-                _, _, thetaplus, rplus, thetatildetilde, ntildetilde, stildetilde, alfatildetilde, nalfatildetilde = buildtree(
-                    thetaplus, rplus, u, v, j - 1, epsilon, theta0, r0,A)
+                _, _, thetaplus, rplus, thetatildetilde, ntildetilde, stildetilde, alfatildetilde, nalfatildetilde,currdensitytildetilde,currgradtildetilde,gradplus,_ = buildtree(
+                    thetaplus, rplus, u, v, j - 1, epsilon, theta0, r0,Q,initialdr,gradplus)
             if(np.random.rand() <= ntildetilde/np.max(np.array([ntilde + ntildetilde,1]))):
                 thetatilde = thetatildetilde
+                currdensitytilde = currdensitytildetilde
+                currgradtilde = currgradtildetilde
 
             alfatilde = alfatilde + alfatildetilde
             nalfatilde = nalfatilde + nalfatildetilde
-            stilde = stildetilde*(np.dot((thetaplus -thetaminus).T,rminus) >= 0)*(np.dot((thetaplus -thetaminus).T,rplus))
+            stilde = stildetilde*(np.dot((thetaplus -thetaminus).T,rminus) >= 0)*(np.dot((thetaplus -thetaminus).T,rplus)>=0)
             ntilde = ntilde + ntildetilde
+            #print(";;", stilde)
+        return thetaminus,rminus,thetaplus,rplus,thetatilde,ntilde,stilde,alfatilde,nalfatilde,currdensitytilde,currgradtilde,gradplus,gradminus
 
 
-        return thetaminus,rminus,thetaplus,rplus,thetatilde,ntilde,stilde,alfatilde,nalfatilde
 #@profile
-
-def hmc(M,x):
-    A = (np.eye(3)*1,None)
-    x = np.reshape(x,(-1,1))
-    dim = x.shape[0]
-    theta = np.zeros((dim, M))
-    theta0 = x
-    theta[:, 0] = np.ravel(theta0)
-    delta = 0.60
-    epsilon = initialeps(theta0,A)
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+@cython.cdivision(True)
+def hmc(M,theta0,Q,Madapt,de=0.6,cm=False):
+    #np.random.seed(1)
+    theta0 = np.reshape(theta0,(-1,1))
+    dim = theta0.shape[0]
+    if (cm == False):
+        theta = np.zeros((dim, M))
+        theta[:, 0] = np.ravel(theta0)
+    delta = de
+    currdensity = Q.logdensity(theta0, Q)
+    currgrad = Q.gradi(theta0, Q)
+    epsilon = initialeps(theta0,Q,currdensity,currgrad)
     myy = np.log(10*epsilon)
     epsilonhat = 1.0
     Hhat = 0.0
     gamma = 0.05
     t0 = 10
     kappa = 0.75
-    Madapt = int(0.07*M)
+    cmestimate = np.zeros((dim,1))
+    if (Madapt >= M):
+        raise Exception('Madapt <= M.')
+    if (de < 0.05 or de > 0.95):
+        raise Exception('Delta is not within reasonable range.')
 
     for i in range(1,M):
-
+        print(i)
         r0 = np.random.randn(dim, 1)
-        u = np.exp(logdensity(theta[:,i-1],A) - 0.5*np.dot(r0.T,r0))*np.random.rand()
-        thetaminus = np.reshape(theta[:,i-1],(-1,1))
-        thetaplus = np.reshape(theta[:,i-1],(-1,1))
+        u = np.exp(currdensity - 0.5*np.dot(r0.T,r0))*np.random.rand()
+        initialdr = currdensity - 0.5 * np.dot(r0.T, r0)
+        thetaminus = np.reshape(theta0,(-1,1))
+        thetaplus = np.reshape(theta0,(-1,1))
         rminus = r0
         rplus = r0
+        gradminus = currgrad
+        gradplus = currgrad
         j = 0
         n = 1.0
         s = 1.0
-        theta[:, i] = theta[:, i - 1]
+        if(cm == False):
+            theta[:, i] = theta[:, i - 1]
         #exit(1)
+        #print(np.ravel(r0))
         while (s==1):
             vj = np.random.choice(np.array([-1,1]))
+            #vj = int(2 * (np.random.rand() < 0.5) - 1)
             if (vj ==-1):
-                thetaminus,rminus,_,_,thetatilde,ntilde,stilde,alfa,nalfa = buildtree(thetaminus,rminus,u,vj,j,epsilon,theta[:,i-1],r0,A)
+                thetaminus,rminus,_,_,thetatilde,ntilde,stilde,alfa,nalfa,currdensitytilde,currgradtilde,_,gradminus = buildtree(thetaminus,rminus,u,vj,j,epsilon,theta0,r0,Q,initialdr,gradminus)
+
             else:
-                _,_,thetaplus,rplus,thetatilde,ntilde,stilde,alfa,nalfa = buildtree(thetaplus, rplus, u,vj,j,epsilon,theta[:,i-1],r0,A)
+                _,_,thetaplus,rplus,thetatilde,ntilde,stilde,alfa,nalfa,currdensitytilde,currgradtilde,gradplus,_ = buildtree(thetaplus, rplus, u,vj,j,epsilon,theta0,r0,Q,initialdr,gradplus)
 
             if (stilde ==1):
                 if(np.random.rand() < ntilde/n):
-                    theta[:, i] = np.ravel(thetatilde)
+                    if(cm == False):
+                        theta[:, i] = np.ravel(thetatilde)
+                    theta0 = thetatilde
+                    currdensity= currdensitytilde
+                    currgrad = currgradtilde
 
             n = n+ntilde
             s = stilde*(np.dot((thetaplus -thetaminus).T,rminus) >= 0)*(np.dot((thetaplus -thetaminus).T,rplus) >= 0)
@@ -278,10 +338,17 @@ def hmc(M,x):
             Hhat = (1.0-1.0/(i+t0))*Hhat + 1.0/(i+t0)*(delta - alfa/nalfa)
             epsilon = np.exp(myy -np.sqrt(i)/gamma*Hhat)
             epsilonhat = np.exp(i**(-kappa)*np.log(epsilon)+(1.0-i**(-kappa))*np.log(epsilonhat))
+
         else:
             epsilon = epsilonhat
+            if (cm):
+                cmestimate = 1.0 / ((i-Madapt)) * ((i-Madapt-1) * cmestimate + theta0)
 
-    return theta[:,Madapt:]
+    #print (epsilon)
+    if(cm == False):
+        return theta[:,Madapt:]
+    else:
+        return cmestimate
 
 
         
@@ -302,7 +369,7 @@ def csr_spmul(int Nrow,int Ncol,np.ndarray[np.double_t] data, np.ndarray[int] in
             r[i] += data[j] * x[indices[j]]
 
     return r
-'''    
+  
 @cython.boundscheck(False) 
 @cython.wraparound(False) 
 def csc_spmul(int Nrow,int Ncol,np.ndarray[np.double_t] data, np.ndarray[int] indices, np.ndarray[int] ptr, np.ndarray[np.double_t, ndim=2] x):
@@ -348,7 +415,7 @@ cdef csc_vmul(int Nrow,int Ncol,double[:] data, int[:] indices, int[:] ptr, doub
 
     return r
 
-'''
+
 cdef lhstep(double[:] Mdata, int[:] Mindices, int[:] Mptr,double [:,:] y,double[:,:] previous,double pnorm,double newcomp, int col):
     cdef int j
     cdef int start = ptr[col]
@@ -356,13 +423,27 @@ cdef lhstep(double[:] Mdata, int[:] Mindices, int[:] Mptr,double [:,:] y,double[
     cdef double change = 0
     for j in prange(start,stop,1,nogil=True):
         change += (newcomp*data[j] - y[indices[j],0])**2.0 - previous[indices[j],0]
-'''    
     
+'''      
 
 @cython.boundscheck(False)
 @cython.wraparound(False) 
 @cython.cdivision(True)
-def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsigma=1.0):
+def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
+    if (Nadapt >= N):
+        raise Exception('Nadapt <= N.')
+    
+    cdef int adapt = Nadapt
+    y = Q.y
+    M = Q.M
+    Lx = Q.Ly
+    Ly = Q.Ly
+    regalpha = Q.a
+    lhsigma = Q.s2
+    samplebeta = Q.b
+    cdef bint cm = cmesti
+    
+    np.random.seed(1)
     dimnumpy = y.shape[0]
     cdef int dim = dimnumpy
     x = x0
@@ -409,7 +490,7 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsi
     
     chain = np.zeros((dim, N))
     chain[:,0] = np.ravel(x)
-    chain2 = np.copy(chain)
+    
     
     cdef int acc = 0
     w = M@x
@@ -441,6 +522,11 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsi
     chdev = np.zeros((dim,))
     cdef double[:] chmeanv = chmean
     cdef double[:]  chdevv = chdev
+    
+    cmest = np.ravel(np.copy(x))
+    cdef double[:] values = np.ravel(np.copy(x))
+    cdef double[:] cmestimate = cmest
+    
     #print(y)
     #print(w)
     #print(likelihood)
@@ -452,10 +538,10 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsi
         
         with nogil:
             for j in range(0,dim):
-
-                old = chainv[j,i-1]
+                old = values[j]
+                #old = chainv[j,i-1]
                 currentvalue = old
-                if (i > 70):
+                if (i > adapt):
                     samplingsigma = 2.4*chdevv[j] + 10**(-12)
                 new = old + samplingsigma*number[j]
                 #print(new)
@@ -498,8 +584,9 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsi
                 #print(pdf(xc)/pdf(x))
                 #chain2[j,i] = ratio
                 if(acceptv[j] <= ratio):
+                    values[j] = new
                     currentvalue = new
-                    chainv[j,i] = new
+                    #chainv[j,i] = new
                     likelihood = likelihood + change
                     prior = prior + change2
                     prior2 = prior2 + change3
@@ -528,7 +615,16 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsi
                     #x[j,0] = new
 
                 else:
-                    chainv[j,i] = old
+                    values[j] = old
+                    #chainv[j,i] = old
+                    
+                if (cm==False):
+                    #pass
+                    chainv[j,i] = values[j]
+                else:
+                    if(i > adapt):
+                        #cmestimate[j]  = 1.0 / ((i+1)) * ((i) * cmestimate[j] + values[j])
+                        cmestimate[j]  = 1.0 / ((i-adapt)) * ((i-adapt-1) * cmestimate[j] + values[j])
                     
                 previousmean = chmeanv[j]
                 currentmean = 1.0/(i+1.0)*(i*previousmean+currentvalue)
@@ -563,17 +659,32 @@ def mwg_tv(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsi
         
     #print(acc/(N*dim))
     #print(numer/N)
-    return  chain
+    if(cm):
+        return np.reshape(cmest,(-1,1))
+    else:
+        return  chain
 
 
 @cython.boundscheck(False)
 @cython.wraparound(False) 
 @cython.cdivision(True)
-def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,lhsigma=1.0):
+def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
+    if (Nadapt >= N):
+        raise Exception('Nadapt <= N.')
+    
+    cdef int adapt = Nadapt
+    y = Q.y
+    M = Q.M
+    Lx = Q.Ly
+    Ly = Q.Ly
+    regalpha = Q.a
+    lhsigma = Q.s2
+    samplebeta = Q.b
+    
+    cdef bint cm = cmesti
     dimnumpy = y.shape[0]
     cdef int dim = dimnumpy
     x = x0
-    xc = np.copy(x)
     np.random.seed(1)
     
     if not isinstance(M, sp.csc.csc_matrix):
@@ -615,10 +726,11 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,
     #return np.ravel(np.exp(-1.0 / 2.0 * (M@x-y).T @ Ci @ (M@x-y)))
     
    
-    
-    chain = np.zeros((dim, N))
-    chain[:,0] = np.ravel(x)
-    chain2 = np.copy(chain)
+    if (cm==False):
+        chain = np.zeros((dim, N))
+        chain[:,0] = np.ravel(x)
+    else:
+        chain = np.zeros((dim,1))
     
     cdef int acc = 0
     w = M@x
@@ -639,18 +751,20 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,
     cdef int i
     cdef int j
     cdef double[:, :] xv = x
-    cdef double[:, :] xcv = xc
     cdef double[:, :] yv = y
     cdef double new,change, change2, change3, old,currentvalue,currentmean,previousmean,currentvar
     cdef double[:, :] chainv = chain
   
     cdef int k, start, stop
     cdef double[:] acceptv,number
-    chmean = np.ravel(x0)
+    chmean = np.ravel(np.copy(x0))
     chdev = np.zeros((dim,))
     cdef double[:] chmeanv = chmean
     cdef double[:]  chdevv = chdev
     
+    cmest = np.ravel(np.copy(x))
+    cdef double[:] values = np.ravel(np.copy(x))
+    cdef double[:] cmestimate = cmest
     #print(y)
     #print(w)
     #print(likelihood)
@@ -663,9 +777,10 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,
         with nogil:
             for j in range(0,dim):
 
-                old = chainv[j,i-1]
+                #old = chainv[j,i-1]
+                old = values[j]
                 currentvalue = old
-                if (i > 70):
+                if (i > adapt):
                     samplingsigma = 2.4*chdevv[j] + 10**(-12)
                 new = old + samplingsigma*number[j]
                 #print(new)
@@ -713,7 +828,8 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,
 
                 #chain2[j,i] = ratio
                 if(acceptv[j] <= ratio):
-                    chainv[j,i] = new
+                    values[j] = new
+                    #chainv[j,i] = new
                     currentvalue = new
                     #likelihood = likelihood + change
                     #prior = prior + change2
@@ -743,12 +859,21 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,
                     #x[j,0] = new
 
                 else:
-                    chainv[j,i] = old
+                    values[j] = old
+                    #chainv[j,i] = old
+                    
+                if (cm==False):
+                    #pass
+                    chainv[j,i] = values[j]
+                else:
+                    if(i > adapt):
+                        #cmestimate[j]  = 1.0 / ((i+1)) * ((i) * cmestimate[j] + values[j])
+                        cmestimate[j]  = 1.0 / ((i-adapt)) * ((i-adapt-1) * cmestimate[j] + values[j])
                 
                 previousmean = chmeanv[j]
                 currentmean = 1.0/(i+1.0)*(i*previousmean+currentvalue)
                 chmeanv[j] = currentmean
-                currentvar = (i-1.0)/(i)*chdevv[j]**2 + 1.0/(i+1.0)*(currentvalue-previousmean)**2
+                currentvar = (i-1.0)/(i)*chdevv[j]*chdevv[j]+ 1.0/(i+1.0)*(currentvalue-previousmean)*(currentvalue-previousmean)
                 chdevv[j] = sqrt(currentvar) 
                 
                     #xc[j,0] = old
@@ -777,4 +902,7 @@ def mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=1.0,
         
     #print(acc/(N*dim))
     #print(numer/N)
-    return  chain
+    if(cm):
+        return np.reshape(cmest,(-1,1))
+    else:
+        return  chain

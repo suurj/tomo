@@ -17,10 +17,75 @@ import scipy.io
 from timeit import timeit
 from matrices import radonmatrix
 from collections import namedtuple
-from cplus import f
-t = np.linspace(0,2*np.pi,50)
-radonmatrix(164,t,7)
-#f(1)
+#from cplus import f
+
+def  gradient(f,Q,x):
+    N = x.shape[0]
+    eps = 1e-7;
+    xn = x.copy(); xe = x.copy();
+    gr = np.zeros((N,1));
+    for i  in range(N):
+        xn[i] = x[i] + eps;
+        xe[i] = x[i] - eps;
+        gr[i] = (f(xn,Q) -f(xe,Q))/(2*eps);
+        xn[i] = x[i];
+        xe[i] = x[i];
+
+    return  gr
+
+from cyt import tfun_cauchy, mwg_cauchy , mwg_tv,tfun_tikhonov, tikhonov_grad,tfun_tv, tv_grad ,cauchy_grad,argumentspack
+Q = argumentspack()
+Q.s2 = 1
+Q.b = 0.3
+Q.M = np.array([[3, -1], [-1, 3]])
+Q.M = np.linalg.inv(Q.M)
+Q.M = np.linalg.cholesky(Q.M)
+Q.M = Q.M.T
+Q.Lx = np.zeros((1,2))
+Q.Ly=np.zeros((1,2))
+Q.Ly = csc_matrix(Q.Ly)
+Q.Lx = csc_matrix(Q.Lx)
+Q.y = np.array([[2.0,-50.0]]).T
+Q.y = Q.M.dot(Q.y)
+np.random.seed(1)
+x = np.random.randn(2,1)
+t = time.time()
+nadapt = 500
+gg = mwg_tv(25000,nadapt,Q,x , sampsigma=1,cmesti=False)
+print(time.time()-t)
+print(np.cov(gg[:,nadapt:]))
+print(np.mean(gg[:,nadapt:],axis=1))
+plt.plot(gg[0,:],gg[1,:],'*r')
+plt.show()
+# r = cauchy_grad(x,Q)
+# rr = gradient(tfun_cauchy,Q,x)
+# w = tikhonov_grad(x,Q)
+# ww = gradient(tfun_tikhonov,Q,x)
+# g = tv_grad(x,Q)
+# gg = gradient(tfun_tv,Q,x)
+# print(r-rr,gg-g,ww-w)
+# print(timeit("z = np.dot(Q.M.T,Q.M)", number=10000 ,setup="from __main__ import  Q,x, np"))
+# print(timeit("z = Q.M.T.dot(Q.M)", number=10000 ,setup="from __main__ import  Q,x"))
+
+# t = np.linspace(0,2*np.pi,50)
+
+# def gradi(x,A):
+#     return -0.5*2*((A[0].T).dot(A[0])).dot(x)
+#     #*np.exp(-0.5*np.dot(res.T,res))
+#     #return np.reshape(-np.matmul(np.matmul(A[0].T,A[0]),x),(-1,1))
+#
+#
+# def logdensity(theta,A):
+#     #print(A[0].dot(theta))
+#     #print(-1* np.dot(A[0].dot(theta).T, A[0].dot(theta)),theta)
+#     return -0.5* np.dot(A[0].dot(theta).T, A[0].dot(theta))
+#     #return 2 * np.dot((np.dot(A[0], theta)).T , (np.dot(A[0], theta)))
+#     #return np.exp(-0.5*(np.dot(A,theta)).T@(np.dot(A,theta)) - 0.5 * np.dot(r.T, r))
+#     #return np.exp(np.log(pdf(theta)) - 0.5 * np.dot(r.T, r))
+#     #return np.exp(np.log(pdf(theta))-0.5*np.dot(r.T,r))
+
+# radonmatrix(16,t,1)
+# #f(1)
 
 # K = argumentspack(M=1,y=2.0)
 # L = copy.copy(K)
@@ -28,10 +93,15 @@ radonmatrix(164,t,7)
 # print(K.M)
 
 # STest = namedtuple("kokeilu", "a b")
+# def rr(x):
+#     return x**2.0
 # class koe:
 #     def __init__(self):
 #         self.a = 1.0
 #         self.b = -2.0
+#
+#     def pp(self,x):
+#         return x**2.0
 #
 # class koe2:
 #     __slots__ = ['a', 'b']
@@ -39,18 +109,20 @@ radonmatrix(164,t,7)
 #         self.a = 1.0
 #         self.b = -2.0
 #
-# if __name__ == '__main__':
-#     k = koe()
-#     kk = koe2()
-#     aa = STest(a=1.0, b=-2.0)
-#     m = [1.0, -2.0]
-#     l = (1.0,-2.0)
-#     kk.b = 1110
-#     k.c = 33
-#     print(getsizeof(kk))
-    #print  (timeit("z = k.a", setup="from __main__ import k"))
-    #print(timeit("z = kk.a", setup="from __main__ import kk"))
-    #print(timeit("z = aa[0]", setup="from __main__ import aa"))
+#     def pp(self, x):
+#         return x ** 2.0
+#
+# #if __name__ == '__main__':
+# k = koe()
+# kk = koe2().pp
+# m = [1.0, -2.0]
+# l = (1.0,-2.0)
+# #kk.b = 1110
+# #k.c = 33
+# #print(getsizeof(kk))
+# print  (timeit("z = k.pp(3)", number=1000000, setup="from __main__ import k"))
+#
+
     #print(timeit("z = aa.a", setup="from __main__ import aa"))
     # print(timeit("z = m[0]", setup="from __main__ import m"))
 
