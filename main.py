@@ -280,6 +280,33 @@ class tomography:
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
 
+    def mwg_tv(self,alpha,M=100,Madapt=20):
+        from cyt import mwg_tv, mwg_cauchy
+        regvalues = np.array([1, -1, 1])
+        offsets = np.array([-self.dim + 1, 0, 1])
+        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        self.regx = sp.kron(sp.eye(self.dim), reg1d)
+        self.regy = sp.kron(reg1d, sp.eye(self.dim))
+        self.regx = sp.csc_matrix(self.regx)
+        self.regy = sp.csc_matrix(self.regy)
+        self.radonoperator = sp.csc_matrix(self.radonoperator)
+        self.alpha = alpha
+        self.Q.Lx = self.regx
+        self.Q.Ly = self.regy
+        self.Q.a = self.alpha
+        self.Q.s2 = self.lhsigmsq
+        self.Q.b = self.beta
+        self.Q.y = self.lines
+        # print(self.radonoperator.shape)
+        # print(self.regx.shape)
+        #x0 = np.reshape(self.map_tikhonov(alpha),(-1,1))
+        #x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
+        x0 = 0.2*np.ones((self.dim * self.dim, 1))
+        cm = mwg_tv(M,Madapt,self.Q, x0, sampsigma=1.0,cmesti=True)
+        cm = np.reshape(cm, (-1, 1))
+        cm = np.reshape(cm, (self.dim, self.dim))
+        return cm
+
     def hmcmc_tv(self,alpha,M=100,Madapt=20):
         from cyt import hmc
         regvalues = np.array([1, -1, 1])
@@ -351,16 +378,16 @@ class tomography:
 if __name__ == "__main__":
 
     #np.random.seed(1)
-    t = tomography("shepp128.png",1.0,50,0.02)
-    real = t.target()
+    t = tomography("shepp64.png",1.0,50,0.02)
+    r = t.target()
     #sg = t.sinogram()
     #sg2 = t.radonww()
     #t = tomography("shepp.png",0.1,20,0.2)
-    #r = t.map_tv(2)
-    #r = t.hmcmc_tv(10,500,300)
+    #r = t.mwg_tv(10,30000,2000)
+    r = t.hmcmc_tv(10,500,300)
     #r = t.hmcmc_cauchy(1,350,300)
-    r = t.hmcmc_tikhonov(1, 500, 300)
-    print(np.linalg.norm(real - r))
+    #r = t.hmcmc_tikhonov(1, 500, 300)
+    #print(np.linalg.norm(real - r))
     # tt = time.time()
     #
 
@@ -369,10 +396,11 @@ if __name__ == "__main__":
     plt.imshow(r)
     #plt.clim(0, 1)
     plt.figure()
+
     r = t.map_tv(10)
     #r = t.map_cauchy(1)
-    r = t.map_tikhonov(1.0)
-    print(np.linalg.norm(real - r))
+    #r = t.map_tikhonov(1.0)
+    #print(np.linalg.norm(real - r))
     #q = iradon_sart(q, theta=theta)
     #r = t.map_tikhonov(50.0)
     #tt = time.time()

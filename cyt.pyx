@@ -444,10 +444,9 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
     cdef bint cm = cmesti
     
     np.random.seed(1)
-    dimnumpy = y.shape[0]
+    dimnumpy = x0.shape[0]
     cdef int dim = dimnumpy
     x = x0
-    xc = np.copy(x)
     np.random.seed(1)
     
     if not isinstance(M, sp.csc.csc_matrix):
@@ -488,8 +487,11 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
     #return np.ravel(np.exp(-1.0 / 2.0 * (M@x-y).T @ Ci @ (M@x-y)))
 
     
-    chain = np.zeros((dim, N))
-    chain[:,0] = np.ravel(x)
+    if (cm==False):
+        chain = np.zeros((dim, N))
+        chain[:,0] = np.ravel(x)
+    else:
+        chain = np.zeros((dim,1))
     
     
     cdef int acc = 0
@@ -511,20 +513,20 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
     cdef int i
     cdef int j
     cdef double[:, :] xv = x
-    cdef double[:, :] xcv = xc
     cdef double[:, :] yv = y
     cdef double new,change, change2, change3, old,currentvalue,currentmean,previousmean,currentvar
     cdef double[:, :] chainv = chain
   
     cdef int k, start, stop
     cdef double[:] acceptv,number
-    chmean = np.ravel(x0)
+    chmean = np.ravel(np.copy(x0))
     chdev = np.zeros((dim,))
     cdef double[:] chmeanv = chmean
     cdef double[:]  chdevv = chdev
     
-    cmest = np.ravel(np.copy(x))
-    cdef double[:] values = np.ravel(np.copy(x))
+    cmest = np.copy(np.ravel(x))
+    #print(x.shape,dim)
+    cdef double[:] values = np.copy(np.ravel(x))
     cdef double[:] cmestimate = cmest
     
     #print(y)
@@ -682,7 +684,7 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
     samplebeta = Q.b
     
     cdef bint cm = cmesti
-    dimnumpy = y.shape[0]
+    dimnumpy = x0.shape[0]
     cdef int dim = dimnumpy
     x = x0
     np.random.seed(1)
