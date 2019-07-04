@@ -344,7 +344,7 @@ def hmc(M,theta0,Q,Madapt,de=0.6,cm=False):
             if (cm):
                 cmestimate = 1.0 / ((i-Madapt)) * ((i-Madapt-1) * cmestimate + theta0)
 
-    #print (epsilon)
+    print ("Epsilon: ", epsilon)
     if(cm == False):
         return theta[:,Madapt:]
     else:
@@ -436,7 +436,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
     cdef int adapt = Nadapt
     y = Q.y
     M = Q.M
-    Lx = Q.Ly
+    Lx = Q.Lx
     Ly = Q.Ly
     regalpha = Q.a
     lhsigma = Q.s2
@@ -677,7 +677,7 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
     cdef int adapt = Nadapt
     y = Q.y
     M = Q.M
-    Lx = Q.Ly
+    Lx = Q.Lx
     Ly = Q.Ly
     regalpha = Q.a
     lhsigma = Q.s2
