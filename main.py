@@ -16,20 +16,31 @@ from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_gra
 
 class tomography:
 
-    def __init__(self, filename,scaling=0.1,ntheta=40,noise=0.000000):
+    def __init__(self, filename,scaling=0.1,itheta=40,noise=0.000000,globalprefix=""):
         #self.normalize = normalize
         self.image = imread(filename, as_gray=True)
         self.image = rescale(self.image, scale=scaling, mode='edge', multichannel=False)
         (self.dim, self.dimx) = self.image.shape
         if (self.dim != self.dimx):
             raise Exception('Image is not rectangular.')
-        self.theta = np.linspace(0., 180., ntheta, endpoint=False)
-        self.theta=self.theta/360*2*np.pi
-        self.flattened = np.reshape(self.image, (-1, 1))
-        (self.N_r, self.N_theta) = (math.ceil(np.sqrt(2)*self.dim),ntheta)#self.radonww(self.image, self.theta, circle=True)).shape
-        fname = 'radonmatrix/'+ 'full-' +str(self.dim) + 'x' + str(self.N_theta) + '.npz'
+        if (isinstance(itheta, (int, np.int32,np.int64))):
+            self.theta = np.linspace(0., 180., itheta, endpoint=False)
+            self.theta=self.theta/360*2*np.pi
+            self.flattened = np.reshape(self.image, (-1, 1))
+            self.globalprefix = globalprefix
+            (self.N_r, self.N_theta) = (math.ceil(np.sqrt(2)*self.dim),itheta)#self.radonww(self.image, self.theta, circle=True)).shape
+            fname = 'radonmatrix/'+ 'full-' +str(self.dim) + 'x' + str(self.N_theta) + '.npz'
 
+        else:
+            self.theta = np.linspace(itheta[0], itheta[1], itheta[2], endpoint=False)
+            self.theta = self.theta / 360 * 2 * np.pi
+            self.flattened = np.reshape(self.image, (-1, 1))
+            self.globalprefix = globalprefix
+            (self.N_r, self.N_theta) = (
+            math.ceil(np.sqrt(2) * self.dim), itheta[2])  # self.radonww(self.image, self.theta, circle=True)).shape
+            fname = 'radonmatrix/' + str(itheta[0]) + '_' + str(itheta[1]) + '_' + str(itheta[2]) + '-' + str(self.dim) + 'x' + str(self.N_theta) + '.npz'
         #fname = 'koe.npz'
+
 
         if (not os.path.isfile(fname)):
             # M = np.zeros([self.N_r * self.N_theta, self.dim * self.dim])
@@ -50,22 +61,24 @@ class tomography:
 
         self.radonoperator = sp.load_npz(fname)
         self.radonoperator = sp.csc_matrix(self.radonoperator)
+        self.normalizedradonoperator = self.radonoperator/self.dim
         # if (self.normalize):
         #     self.radonoperator = self.radonoperator/(self.dim)
-        #self.radonoperator = loaded['radonoperator']
-        #loaded.close()
 
         # self.measurement = np.exp(-self.radonoperator @ self.flattened) + noise * np.random.randn(self.N_r * self.N_theta, 1)
         # self.measurement[self.measurement<=0] = 10**(-19)
         # self.lines = -np.log(self.measurement)
 
         self.measurement = self.radonoperator @ self.flattened
+        self.normalizedmeasurement = self.normalizedradonoperator@self.flattened
 
         #print(np.ravel(self.measurement).shape[0]/(self.dim*self.dim))
         #self.measurement[self.measurement <= 0] = 10 ** (-19)
         max = np.max(self.measurement)
-        self.lines =  self.measurement + max*noise * np.random.randn(self.N_r * self.N_theta, 1)
+        noiserealization = np.random.randn(self.N_r * self.N_theta, 1)
+        self.lines =  self.measurement + max*noise * noiserealization
         self.sgram = np.reshape(self.lines,(self.N_r,self.N_theta))
+        self.normalizedsgram =  np.reshape(self.normalizedmeasurement + np.max(self.normalizedmeasurement)*noise * noiserealization,(self.N_r,self.N_theta))
         self.lhsigmsq = 0.5
         self.beta = 0.01
         self.Q = argumentspack(M=self.radonoperator,y=self.lines,b=self.beta,s2=self.lhsigmsq)
@@ -488,10 +501,10 @@ class tomography:
         x = np.linspace(np.sqrt(2),-np.sqrt(2), rn)
         X,Y = np.meshgrid(self.theta,x)
         #plt.contourf(X, Y, self.sgram)
-        plt.imshow(self.sgram,extent=[0, self.theta[-1], -np.sqrt(2), np.sqrt(2)])
-        #plt.figure()
-        #plt.imshow(self.sgram)
+        plt.imshow(self.normalizedsgram,extent=[self.theta[0], self.theta[-1], -np.sqrt(2), np.sqrt(2)])
         plt.show()
+        #plt.imshow(self.sgram)
+        #plt.show()
         #return self.sgram
 
     def radonww(self,circle=False):
@@ -500,18 +513,30 @@ class tomography:
             return radon(self.image,self.theta/(2*np.pi)*360,circle)
 
 
+    def saveresult(self,img,prefix=""):
+        name = time.strftime(self.globalprefix+prefix+"%d-%m-%Y_%H%M%S.npy")
+        np.save(name, img)
+
+
 if __name__ == "__main__":
 
     np.random.seed(2)
-    t = tomography("shepp128.png",1.0,2,0.02)
+    theta = (0,45,50)
+    #theta = 50
+    t = tomography("shepp128.png",1.0,theta,0.05)
     real = t.target()
+    #t.saveresult(real)
     #sg = t.sinogram()
     #t.sinogram()
+
+    #t.normalizedsgram = t.radonww()
+    #t.sinogram()
+
     #sg2 = t.radonww()
     #t = tomography("shepp.png",0.1,20,0.2)
     #r = t.mwg_cauchy(0.05,10000,100)
     #r = t.hmcmc_tv(5,220,30)
-    r = t.hmcmc_cauchy(0.01,100,15)
+    #r = t.hmcmc_cauchy(0.01,100,15)
     #r = t.hmcmc_tikhonov(50, 200, 20)
     # #r = t.hmcmc_wavelet(25, 250, 20,type='haar')
     # #print(np.linalg.norm(real - r))
@@ -525,29 +550,29 @@ if __name__ == "__main__":
     # # # # print(time.time()-tt)
     # # # #
     # #r = t.hmcmc_cauchy(0.01, 150, 30)
-    plt.imshow(r)
+    #plt.imshow(r)
     # # #plt.plot(r[3000,:],r[2000,:],'*r')
     #plt.clim(0, 1)
-    plt.figure()
+    #plt.figure()
     #r2 = t.mwg_cauchy(0.05, 10000, 100)
-    #r2 = t.map_tv(1)
+    #r2 = t.map_tv(10)
     #r2 = t.map_cauchy(0.1)
     #r2 = t.map_cauchy(10**(9)/(1/t.dim))
     #r2 = t.map_cauchy(0.0001*(1/(t.dim**2)))
-    r2 = t.map_cauchy(0.01)
-    #r2 = t.map_tikhonov(5)
-    # #print(np.linalg.norm(real - r))
-    # #q = iradon_sart(q, theta=theta)
-    # #r2 = t.map_tikhonov(50.0)
-    # #tt = time.time()
+    # r2 = t.map_cauchy(0.005)
+    # #r2 = t.map_tikhonov(5)
+    # # #print(np.linalg.norm(real - r))
+    # # #q = iradon_sart(q, theta=theta)
+    # # #r2 = t.map_tikhonov(50.0)
+    # # #tt = time.time()
     # #r2 = t.map_tikhonov(50)
-    # #r2 = t.map_wavelet(25,'haar')
-    print(np.linalg.norm(np.reshape(real - r, (-1, 1)),ord=2))
-    print(np.linalg.norm(np.reshape(real - r2,(-1,1)),ord=2))
-    # #print(time.time()-tt)
-    plt.imshow(r2)
-    #plt.clim(0, 1)
-    plt.show()
+    # #r2 = t.map_wavelet(2,'db1')
+    # #print(np.linalg.norm(np.reshape(real - r, (-1, 1)),ord=2))
+    # print(np.linalg.norm(np.reshape(real - r2,(-1,1)),ord=2))
+    # # #print(time.time()-tt)
+    # plt.imshow(r2)
+    # plt.clim(0, 1)
+    # plt.show()
 
 
 #

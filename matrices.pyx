@@ -183,7 +183,8 @@ def  radonmatrix(size,theta,Nthreads=4):
     with nogil:                     
         for r in prange (0,R,num_threads=Nth):
             for t in range (0,T):
-                tt = tmax - t*dt
+                #tt = tmax - t*dt
+                tt = tmin + t*dt
                 for n in range (0,N):
                     for m in range( 0,M):
                         #psi = pi/dx*(pmin+r*dp-(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt))
