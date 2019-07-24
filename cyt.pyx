@@ -231,12 +231,11 @@ def initialeps(theta,Q,currdensity,currgrad):
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True)  
-def buildtree(theta,r,u,v,j,epsilon,theta0,r0,Q,initialdr,currgrad):
+def buildtree(theta,r,logu,v,j,epsilon,theta0,r0,Q,initialdr,currgrad):
     if (j==0):
         thetatilde, rtilde, currdensitytilde,currgradtilde = leapfrog(theta,r,v*epsilon,Q,currgrad)
         #ldensitytilde = Q.logdensity(thetatilde,Q)
         #ldensity = Q.logdensity(theta0,Q)
-        logu = np.log(u)
         #print(currdensity)
         #print(initialdr)
         diff = np.min(np.array([np.exp(currdensitytilde - 0.5*np.dot(rtilde.T,rtilde) -initialdr),1]))
@@ -246,15 +245,15 @@ def buildtree(theta,r,u,v,j,epsilon,theta0,r0,Q,initialdr,currgrad):
         return thetatilde,rtilde,thetatilde,rtilde,thetatilde,ntilde,stilde,diff,1,currdensitytilde,currgradtilde,currgradtilde,currgradtilde
 
     else:
-        thetaminus,rminus,thetaplus,rplus,thetatilde,ntilde,stilde,alfatilde,nalfatilde,currdensitytilde,currgradtilde,gradplus,gradminus = buildtree(theta,r,u,v,j-1,epsilon,theta0,r0,Q,initialdr,currgrad)
+        thetaminus,rminus,thetaplus,rplus,thetatilde,ntilde,stilde,alfatilde,nalfatilde,currdensitytilde,currgradtilde,gradplus,gradminus = buildtree(theta,r,logu,v,j-1,epsilon,theta0,r0,Q,initialdr,currgrad)
 
         if(stilde == 1):
             if(v == -1):
                 thetaminus, rminus, _, _, thetatildetilde, ntildetilde, stildetilde, alfatildetilde, nalfatildetilde,currdensitytildetilde,currgradtildetilde,_,gradminus = buildtree(
-                    thetaminus, rminus, u, v, j - 1, epsilon, theta0, r0,Q,initialdr,gradminus)
+                    thetaminus, rminus, logu, v, j - 1, epsilon, theta0, r0,Q,initialdr,gradminus)
             else:
                 _, _, thetaplus, rplus, thetatildetilde, ntildetilde, stildetilde, alfatildetilde, nalfatildetilde,currdensitytildetilde,currgradtildetilde,gradplus,_ = buildtree(
-                    thetaplus, rplus, u, v, j - 1, epsilon, theta0, r0,Q,initialdr,gradplus)
+                    thetaplus, rplus, logu, v, j - 1, epsilon, theta0, r0,Q,initialdr,gradplus)
             if(np.random.rand() <= ntildetilde/np.max(np.array([ntilde + ntildetilde,1]))):
                 thetatilde = thetatildetilde
                 currdensitytilde = currdensitytildetilde
@@ -272,7 +271,7 @@ def buildtree(theta,r,u,v,j,epsilon,theta0,r0,Q,initialdr,currgrad):
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True)
-def hmc(M,theta0,Q,Madapt,de=0.6,cm=False):
+def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=None,cm=False):
     #np.random.seed(1)
     theta0 = np.reshape(theta0,(-1,1))
     dim = theta0.shape[0]
@@ -282,23 +281,24 @@ def hmc(M,theta0,Q,Madapt,de=0.6,cm=False):
     delta = de
     currdensity = Q.logdensity(theta0, Q)
     currgrad = Q.gradi(theta0, Q)
-    epsilon = initialeps(theta0,Q,currdensity,currgrad)
+    if (epsilonwanted is None):
+        epsilon = initialeps(theta0,Q,currdensity,currgrad)
+        epsilonhat = 1.0
+    else:
+        epsilon = epsilonwanted
+        epsilonhat = epsilonwanted
     myy = np.log(10*epsilon)
-    epsilonhat = 1.0
     Hhat = 0.0
-    gamma = 0.05
-    t0 = 10
-    kappa = 0.75
     cmestimate = np.zeros((dim,1))
     if (Madapt >= M):
         raise Exception('Madapt <= M.')
-    if (de < 0.05 or de > 0.95):
+    if (de < 0.05 or de > 0.999999):
         raise Exception('Delta is not within reasonable range.')
 
     for i in range(1,M):
         print(i)
         r0 = np.random.randn(dim, 1)
-        u = np.exp(currdensity - 0.5*np.dot(r0.T,r0))*np.random.rand()
+        logu = (currdensity - 0.5*np.dot(r0.T,r0))+np.log(np.random.rand())
         initialdr = currdensity - 0.5 * np.dot(r0.T, r0)
         thetaminus = np.reshape(theta0,(-1,1))
         thetaplus = np.reshape(theta0,(-1,1))
@@ -317,10 +317,10 @@ def hmc(M,theta0,Q,Madapt,de=0.6,cm=False):
             vj = np.random.choice(np.array([-1,1]))
             #vj = int(2 * (np.random.rand() < 0.5) - 1)
             if (vj ==-1):
-                thetaminus,rminus,_,_,thetatilde,ntilde,stilde,alfa,nalfa,currdensitytilde,currgradtilde,_,gradminus = buildtree(thetaminus,rminus,u,vj,j,epsilon,theta0,r0,Q,initialdr,gradminus)
+                thetaminus,rminus,_,_,thetatilde,ntilde,stilde,alfa,nalfa,currdensitytilde,currgradtilde,_,gradminus = buildtree(thetaminus,rminus,logu,vj,j,epsilon,theta0,r0,Q,initialdr,gradminus)
 
             else:
-                _,_,thetaplus,rplus,thetatilde,ntilde,stilde,alfa,nalfa,currdensitytilde,currgradtilde,gradplus,_ = buildtree(thetaplus, rplus, u,vj,j,epsilon,theta0,r0,Q,initialdr,gradplus)
+                _,_,thetaplus,rplus,thetatilde,ntilde,stilde,alfa,nalfa,currdensitytilde,currgradtilde,gradplus,_ = buildtree(thetaplus, rplus, logu,vj,j,epsilon,theta0,r0,Q,initialdr,gradplus)
 
             if (stilde ==1):
                 if(np.random.rand() < ntilde/n):
@@ -333,11 +333,14 @@ def hmc(M,theta0,Q,Madapt,de=0.6,cm=False):
             n = n+ntilde
             s = stilde*(np.dot((thetaplus -thetaminus).T,rminus) >= 0)*(np.dot((thetaplus -thetaminus).T,rplus) >= 0)
             j = j +1
-
+        
+       
         if(i <=Madapt):
-            Hhat = (1.0-1.0/(i+t0))*Hhat + 1.0/(i+t0)*(delta - alfa/nalfa)
-            epsilon = np.exp(myy -np.sqrt(i)/gamma*Hhat)
-            epsilonhat = np.exp(i**(-kappa)*np.log(epsilon)+(1.0-i**(-kappa))*np.log(epsilonhat))
+            if (epsilonwanted is None):
+                Hhat = (1.0-1.0/(i+t0))*Hhat + 1.0/(i+t0)*(delta - alfa/nalfa)
+                epsilon = np.exp(myy -np.sqrt(i)/gamma*Hhat)
+                epsilonhat = np.exp(i**(-kappa)*np.log(epsilon)+(1.0-i**(-kappa))*np.log(epsilonhat))
+                print(epsilon)
 
         else:
             epsilon = epsilonhat
@@ -346,7 +349,7 @@ def hmc(M,theta0,Q,Madapt,de=0.6,cm=False):
 
     print ("Epsilon: ", epsilon)
     if(cm == False):
-        return theta[:,Madapt:]
+        return theta
     else:
         return cmestimate
 

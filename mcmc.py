@@ -317,6 +317,7 @@ def hmc(M,theta0,Q,Madapt,de=0.6,cm=False):
 #print(grad(pdf)(np.array([-0.6490,1.1812,-0.7585]) ))
 '''
 from cyt import hmc, tfun_cauchy, tfun_tikhonov, tikhonov_grad,tfun_tv, tv_grad ,cauchy_grad,argumentspack
+from pytwalk import pytwalk
 
 def  gradient(f,Q,x):
     N = x.shape[0]
@@ -351,14 +352,20 @@ Ly = np.zeros((2,2))
 Q.Lx = csc_matrix(Lx)
 Q.Ly = csc_matrix(Ly)
 x = np.zeros((2,))
-
+uf = lambda x: -tfun_tikhonov(x,Q)
+su = lambda x: True
 t = time.time()
+#ww=pytwalk(U=uf,Supp=su,n=2)
+#res=ww.Run( T=50000, x0=0*np.ones(2), xp0=1*np.ones(2))
+#rr = res.T
+#rr = rr[0:2,:]
+#ww.Hist()
 rr=hmc(10000,x,Q,100,cm=False)
 #print(rr)
 print(time.time()-t)
-#print(np.cov(rr))
+print(np.cov(rr))
 plt.plot(rr[0,:],rr[1,:],'*r')
-#plt.show()
+plt.show()
 exit(0)
 #Q.logdensity = lambda x: -0.5/Q.s2*x*x
 #Q.gradi = lambda x: -2*x

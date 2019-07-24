@@ -17,6 +17,7 @@ from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_gra
 class tomography:
 
     def __init__(self, filename,scaling=0.1,ntheta=40,noise=0.000000):
+        #self.normalize = normalize
         self.image = imread(filename, as_gray=True)
         self.image = rescale(self.image, scale=scaling, mode='edge', multichannel=False)
         (self.dim, self.dimx) = self.image.shape
@@ -49,6 +50,8 @@ class tomography:
 
         self.radonoperator = sp.load_npz(fname)
         self.radonoperator = sp.csc_matrix(self.radonoperator)
+        # if (self.normalize):
+        #     self.radonoperator = self.radonoperator/(self.dim)
         #self.radonoperator = loaded['radonoperator']
         #loaded.close()
 
@@ -58,6 +61,7 @@ class tomography:
 
         self.measurement = self.radonoperator @ self.flattened
 
+        #print(np.ravel(self.measurement).shape[0]/(self.dim*self.dim))
         #self.measurement[self.measurement <= 0] = 10 ** (-19)
         max = np.max(self.measurement)
         self.lines =  self.measurement + max*noise * np.random.randn(self.N_r * self.N_theta, 1)
@@ -66,23 +70,35 @@ class tomography:
         self.beta = 0.01
         self.Q = argumentspack(M=self.radonoperator,y=self.lines,b=self.beta,s2=self.lhsigmsq)
 
-    def map_tikhonov(self,alpha=1.0):
+    def map_tikhonov(self,alpha=1.0,display=False,order=1):
         #col = np.block([[-1], [np.zeros((self.y - 2, 1))]])
         #row = np.block([np.array([-1,2,-1]),np.zeros((self.x-4,))])
         # d1= circulant(np.block([[2], [-1] , [np.zeros((self.dim - 3, 1))], [-1]]))
         # self.regx = np.kron(np.eye(self.dim), d1)
         # self.regy =  np.kron(d1, np.eye(self.dim))
-        regvalues = np.array([2, -1, -1, -1, -1])
-        offsets = np.array([0, 1, -1, self.dim - 1, -self.dim + 1])
-        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        if (order == 2):
+            regvalues = np.array([2, -1, -1, -1, -1])
+            offsets = np.array([0, 1, -1, self.dim - 1, -self.dim + 1])
+            reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        else:
+            regvalues = np.array([1, -1, 1])
+            offsets = np.array([-self.dim + 1, 0, 1])
+            reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
         self.regx = sp.kron(sp.eye(self.dim), reg1d)
         self.regy = sp.kron(reg1d, sp.eye(self.dim))
+        # if (self.normalize):
+        #     self.regx = self.regx / (self.dim**1 )
+        #     self.regy = self.regy / (self.dim **1)
         self.alpha = alpha
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         self.regx = sp.csc_matrix(self.regx)
         self.regy = sp.csc_matrix(self.regy)
-        self.Q.Lx = self.regx
-        self.Q.Ly = self.regy
+        self.combined = sp.vstack([self.regy, self.regx], format='csc')
+        self.empty = sp.csc_matrix((1, self.dim * self.dim))
+        #self.Q.Lx = self.regx
+        #self.Q.Ly = self.regy
+        self.Q.Lx = self.combined
+        self.Q.Ly = self.empty
         self.Q.a = self.alpha
         self.Q.s2 = self.lhsigmsq
         # import scipy
@@ -95,7 +111,7 @@ class tomography:
         #
 
         x0= 1+ 0.05*np.random.randn(self.dim * self.dim, )
-        solution = minimize(self.tfun_tikhonov,x0,method='L-BFGS-B',jac=self.grad_tikhonov,options={'maxiter':20, 'disp': True})
+        solution = minimize(self.tfun_tikhonov,x0,method='L-BFGS-B',jac=self.grad_tikhonov,options={'maxiter':430, 'disp': display})
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -123,7 +139,7 @@ class tomography:
         # print(np.ravel(q))
         return (np.ravel(ans))
 
-    def map_tv(self,alpha=1.0):
+    def map_tv(self,alpha=1.0,display=False):
         # reg1d= circulant(np.block([[-1], [0], [np.zeros((self.dim - 3, 1))], [1]]))
         # self.regx = np.kron(np.eye(self.dim), reg1d)
         # self.regy = np.kron(reg1d,np.eye(self.dim))
@@ -135,16 +151,24 @@ class tomography:
         self.regy = sp.kron(reg1d, sp.eye(self.dim))
         self.regx = sp.csc_matrix(self.regx)
         self.regy = sp.csc_matrix(self.regy)
+        # if (self.normalize):
+        #     self.regx = self.regx / (self.dim**2 )
+        #     self.beta = self.beta/self.dim**4
+        #     self.regy = self.regy / (self.dim **2)
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         self.alpha = alpha
-        self.Q.Lx = self.regx
-        self.Q.Ly = self.regy
+        self.combined = sp.vstack([self.regy,self.regx],format='csc')
+        self.empty = sp.csc_matrix((1,self.dim*self.dim))
+        # self.Q.Lx = self.regx
+        # self.Q.Ly = self.regy
+        self.Q.Lx = self.combined
+        self.Q.Ly = self.empty
         self.Q.a = self.alpha
         self.Q.s2 = self.lhsigmsq
         self.Q.b = self.beta
 
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
-        solution = minimize(self.tfun_tv, x0, method='L-BFGS-B', jac=self.grad_tv, options={'maxiter':230,'disp': True})
+        solution = minimize(self.tfun_tv, x0, method='L-BFGS-B', jac=self.grad_tv, options={'maxiter':430,'disp': display})
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -173,7 +197,7 @@ class tomography:
         #print(np.ravel(q))
         return (np.ravel(q))
 
-    def map_cauchy(self,alpha=1.0):
+    def map_cauchy(self,alpha=1.0,display=False):
         # reg1d= circulant(np.block([[-1], [0], [np.zeros((self.dim - 3, 1))], [1]]))
         # self.regx = sp.kron(sp.eye(self.dim), reg1d)
         # self.regy = sp.kron(reg1d,sp.eye(self.dim))
@@ -187,10 +211,17 @@ class tomography:
         self.regy = sp.kron(reg1d, sp.eye(self.dim))
         self.regx = sp.csc_matrix(self.regx)
         self.regy = sp.csc_matrix(self.regy)
+        # if (self.normalize):
+        #     self.regx= self.regx/(self.dim**2)
+        #     self.regy = self.regy/(self.dim**2)
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         self.alpha = alpha
-        self.Q.Lx = self.regx
-        self.Q.Ly = self.regy
+        self.combined = sp.vstack([self.regy, self.regx], format='csc')
+        self.empty = sp.csc_matrix((1, self.dim * self.dim))
+        # self.Q.Lx = self.regx
+        # self.Q.Ly = self.regy
+        self.Q.Lx = self.combined
+        self.Q.Ly = self.empty
         self.Q.a = self.alpha
         self.Q.s2 = self.lhsigmsq
         self.Q.b = self.beta
@@ -199,7 +230,7 @@ class tomography:
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
         bnds = [(0, np.inf) for _ in x0]
 
-        solution = minimize(self.tfun_cauchy, x0, method='L-BFGS-B', jac=self.grad_cauchy, options={'maxiter':150,'disp': True})
+        solution = minimize(self.tfun_cauchy, x0, method='L-BFGS-B', jac=self.grad_cauchy, options={'maxiter':150,'disp': display})
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -226,7 +257,7 @@ class tomography:
         #print(np.ravel(q))
         return (np.ravel(ans))
 
-    def map_wavelet(self,alpha=1.0,type='haar'):
+    def map_wavelet(self,alpha=1.0,type='haar',display=False):
         from matrices import totalmatrix
         wl = pywt.Wavelet(type)
         g = np.array(wl.dec_lo)
@@ -236,7 +267,7 @@ class tomography:
         self.regx = sp.csc_matrix(self.regx)
         self.regy = sp.csc_matrix(self.regy)
         self.radonoperator = sp.csc_matrix(self.radonoperator)
-        self.beta = 0
+        self.beta = 0.01
         self.alpha = alpha
         self.Q.Lx = self.regx
         self.Q.Ly = self.regy
@@ -245,7 +276,7 @@ class tomography:
 
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
         solution = minimize(self.tfun_tv, x0, method='L-BFGS-B', jac=self.grad_tv,
-                            options={'maxiter': 230, 'disp': True})
+                            options={'maxiter': 230, 'disp': display})
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -254,28 +285,38 @@ class tomography:
         # plt.show()
         return solution
 
-    def hmcmc_tikhonov(self,alpha,M=100,Madapt=20):
+    def hmcmc_tikhonov(self,alpha,M=100,Madapt=20,order=1):
         from cyt import hmc
-        regvalues = np.array([2, -1, -1, -1, -1])
-        offsets = np.array([0, 1, -1, self.dim - 1, -self.dim + 1])
-        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        if (order==2):
+            regvalues = np.array([2, -1, -1, -1, -1])
+            offsets = np.array([0, 1, -1, self.dim - 1, -self.dim + 1])
+            reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        else:
+            regvalues = np.array([1, -1, 1])
+            offsets = np.array([-self.dim + 1, 0, 1])
+            reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
         self.regx = sp.kron(sp.eye(self.dim), reg1d)
         self.regy = sp.kron(reg1d, sp.eye(self.dim))
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         self.alpha = alpha
-        self.Q.Lx = self.regx
-        self.Q.Ly = self.regy
+        self.combined = sp.vstack([self.regy, self.regx], format='csc')
+        self.empty = sp.csc_matrix((1, self.dim * self.dim))
+        # self.Q.Lx = self.regx
+        # self.Q.Ly = self.regy
+        self.Q.Lx = self.combined
+        self.Q.Ly = self.empty
         self.Q.a = self.alpha
         self.Q.s2 = self.lhsigmsq
         self.Q.b = self.beta
         self.Q.logdensity = ltikhonov
         self.Q.gradi = tikhonov_grad
+        self.Q.y = self.lines
         # print(self.radonoperator.shape)
         # print(self.regx.shape)
         #x0 = np.reshape(self.map_tikhonov(alpha),(-1,1))
         #x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
         x0 = 0.2*np.ones((self.dim * self.dim, 1))
-        cm = hmc(M,x0,self.Q,Madapt,de=0.6,cm=True)
+        cm = hmc(M,x0,self.Q,Madapt,de=0.651,gamma=0.05,t0=10.0,kappa=0.75,cm=True)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -291,8 +332,12 @@ class tomography:
         self.regy = sp.csc_matrix(self.regy)
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         self.alpha = alpha
-        self.Q.Lx = self.regx
-        self.Q.Ly = self.regy
+        self.combined = sp.vstack([self.regy, self.regx], format='csc')
+        self.empty = sp.csc_matrix((1, self.dim * self.dim))
+        # self.Q.Lx = self.regx
+        # self.Q.Ly = self.regy
+        self.Q.Lx = self.combined
+        self.Q.Ly = self.empty
         self.Q.a = self.alpha
         self.Q.s2 = self.lhsigmsq
         self.Q.b = self.beta
@@ -318,8 +363,12 @@ class tomography:
         self.regy = sp.csc_matrix(self.regy)
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         self.alpha = alpha
-        self.Q.Lx = self.regx
-        self.Q.Ly = self.regy
+        self.combined = sp.vstack([self.regy, self.regx], format='csc')
+        self.empty = sp.csc_matrix((1, self.dim * self.dim))
+        # self.Q.Lx = self.regx
+        # self.Q.Ly = self.regy
+        self.Q.Lx = self.combined
+        self.Q.Ly = self.empty
         self.Q.a = self.alpha
         self.Q.s2 = self.lhsigmsq
         self.Q.b = self.beta
@@ -345,8 +394,12 @@ class tomography:
         self.regy = sp.csc_matrix(self.regy)
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         self.alpha = alpha
-        self.Q.Lx = self.regx
-        self.Q.Ly = self.regy
+        self.combined = sp.vstack([self.regy, self.regx], format='csc')
+        self.empty = sp.csc_matrix((1, self.dim * self.dim))
+        # self.Q.Lx = self.regx
+        # self.Q.Ly = self.regy
+        self.Q.Lx = self.combined
+        self.Q.Ly = self.empty
         self.Q.a = self.alpha
         self.Q.s2 = self.lhsigmsq
         self.Q.b = self.beta
@@ -357,7 +410,7 @@ class tomography:
         #x0 = np.reshape(self.map_tv(alpha),(-1,1))
         #x0 = x0 + 0.1*np.random.randn(self.dim*self.dim,1)
         x0 = 0.2*np.ones((self.dim * self.dim, 1))
-        cm = hmc(M,x0,self.Q,Madapt,de=0.6,cm=True)
+        cm = hmc(M,x0,self.Q,Madapt,de=0.8,gamma=0.05,t0=10.0,kappa=0.75,cm=True)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -373,8 +426,12 @@ class tomography:
         self.regy = sp.csc_matrix(self.regy)
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         self.alpha = alpha
-        self.Q.Lx = self.regx
-        self.Q.Ly = self.regy
+        self.combined = sp.vstack([self.regy, self.regx], format='csc')
+        self.empty = sp.csc_matrix((1, self.dim * self.dim))
+        # self.Q.Lx = self.regx
+        # self.Q.Ly = self.regy
+        self.Q.Lx = self.combined
+        self.Q.Ly = self.empty
         self.Q.a = self.alpha
         self.Q.s2 = self.lhsigmsq
         self.Q.b = self.beta
@@ -383,9 +440,41 @@ class tomography:
         # print(self.radonoperator.shape)
         # print(self.regx.shape)
         #x0 = np.reshape(self.map_cauchy(alpha),(-1,1))
-        #x0 = x0 + np.random.rand(self.dim*self.dim,1)
-        x0 = 0.2*np.ones((self.dim * self.dim, 1))
-        cm = hmc(M,x0,self.Q,Madapt,de=0.6,cm=True)
+        #x0 = x0 + 0.1*np.random.rand(self.dim*self.dim,1)
+        #x0 = 0.5+0.*np.random.randn(self.dim * self.dim, 1)
+        x0 = 0.5*np.ones((self.dim*self.dim,1))
+        cm = hmc(M,x0,self.Q,Madapt,de=0.8,gamma=0.05,t0=10.0,epsilonwanted=None,kappa=0.75,cm=True)
+        cm = np.reshape(cm, (-1, 1))
+        cm = np.reshape(cm, (self.dim, self.dim))
+        return cm
+
+    def hmcmc_wavelet(self,alpha,M=100,Madapt=20,type='haar'):
+        from matrices import totalmatrix
+        from cyt import hmc
+        wl = pywt.Wavelet(type)
+        g = np.array(wl.dec_lo)
+        h = np.array(wl.dec_hi)
+        self.regx = totalmatrix(self.dim, 6, g, h)
+        self.regy = sp.csc_matrix((1, self.dim * self.dim))
+        self.regx = sp.csc_matrix(self.regx)
+        self.regy = sp.csc_matrix(self.regy)
+        self.radonoperator = sp.csc_matrix(self.radonoperator)
+        self.beta = 0.01
+        self.alpha = alpha
+        self.Q.Lx = self.regx
+        self.Q.b = self.beta
+        self.Q.Ly = self.regy
+        self.Q.a = self.alpha
+        self.Q.s2 = self.lhsigmsq
+        self.Q.logdensity = ltv
+        self.Q.gradi = tv_grad
+        # print(self.radonoperator.shape)
+        # print(self.regx.shape)
+        #x0 = np.reshape(self.map_cauchy(alpha),(-1,1))
+        #x0 = x0 + 0.1*np.random.rand(self.dim*self.dim,1)
+        #x0 = 0.5+0.*np.random.randn(self.dim * self.dim, 1)
+        x0 = 0.5*np.ones((self.dim*self.dim,1))
+        cm = hmc(M,x0,self.Q,Madapt,de=0.8,gamma=0.05,t0=10.0,epsilonwanted=None,kappa=0.75,cm=True)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -394,7 +483,16 @@ class tomography:
         return self.image
 
     def sinogram(self):
-        return self.sgram
+        rn = self.sgram.shape[0]
+        tn = self.sgram.shape[1]
+        x = np.linspace(np.sqrt(2),-np.sqrt(2), rn)
+        X,Y = np.meshgrid(self.theta,x)
+        #plt.contourf(X, Y, self.sgram)
+        plt.imshow(self.sgram,extent=[0, self.theta[-1], -np.sqrt(2), np.sqrt(2)])
+        #plt.figure()
+        #plt.imshow(self.sgram)
+        plt.show()
+        #return self.sgram
 
     def radonww(self,circle=False):
         with warnings.catch_warnings():
@@ -404,40 +502,50 @@ class tomography:
 
 if __name__ == "__main__":
 
-    #np.random.seed(1)
-    t = tomography("shepp128.png",1.0,30,0.02)
+    np.random.seed(2)
+    t = tomography("shepp128.png",1.0,50,0.02)
     real = t.target()
     #sg = t.sinogram()
+    #t.sinogram()
     #sg2 = t.radonww()
     #t = tomography("shepp.png",0.1,20,0.2)
-    #r = t.mwg_cauchy(0.5,10000,5000)
-    #r = t.hmcmc_tv(10,2500,1000)
-    r = t.hmcmc_cauchy(0.5,10000,1000)
-    #r = t.hmcmc_tikhonov(1, 500, 300)
-    #print(np.linalg.norm(real - r))
-    # tt = time.time()
-    #
-
-    # # print(time.time()-tt)
+    #r = t.mwg_cauchy(0.05,10000,100)
+    #r = t.hmcmc_tv(5,220,30)
+    #r = t.hmcmc_cauchy(0.01,150,30)
+    #r = t.hmcmc_tikhonov(50, 200, 20)
+    # #r = t.hmcmc_wavelet(25, 250, 20,type='haar')
+    # #print(np.linalg.norm(real - r))
+    # # tt = time.time()
     # #
+    #r = t.map_tv(1,True)
+    #r = t.map_cauchy(0.01,True)
+    #r = t.map_tikhonov(10 / (t.dim*t.dim))
+    r = t.map_tikhonov(10,True,order=1)
+    # #
+    # # # # print(time.time()-tt)
+    # # # #
+    # #r = t.hmcmc_cauchy(0.01, 150, 30)
     plt.imshow(r)
-    #plt.plot(r[3000,:],r[2000,:],'*r')
+    # # #plt.plot(r[3000,:],r[2000,:],'*r')
     #plt.clim(0, 1)
-    plt.figure()
-
-    #r2 = t.map_tv(10)
-    r2 = t.map_cauchy(0.5)
-    #r2 = t.map_tikhonov(1.0)
-    #print(np.linalg.norm(real - r))
-    #q = iradon_sart(q, theta=theta)
-    #r2 = t.map_tikhonov(50.0)
-    #tt = time.time()
-    #r2 = t.map_tikhonov(50)
-    #r2 = t.map_wavelet(5,'db2')
-    print(np.linalg.norm(real-r))
-    print(np.linalg.norm(real - r2))
-    #print(time.time()-tt)
-    plt.imshow(r2)
+    #plt.figure()
+    #r2 = t.mwg_cauchy(0.05, 10000, 100)
+    #r2 = t.map_tv(1)
+    #r2 = t.map_cauchy(0.1)
+    #r2 = t.map_cauchy(10**(9)/(1/t.dim))
+    #r2 = t.map_cauchy(0.0001*(1/(t.dim**2)))
+    #r2 = t.map_cauchy(0.01)
+    #r2 = t.map_tikhonov(5)
+    # #print(np.linalg.norm(real - r))
+    # #q = iradon_sart(q, theta=theta)
+    # #r2 = t.map_tikhonov(50.0)
+    # #tt = time.time()
+    # #r2 = t.map_tikhonov(50)
+    # #r2 = t.map_wavelet(25,'haar')
+    # print(np.linalg.norm(np.reshape(real - r, (-1, 1)),ord=2))
+    # print(np.linalg.norm(np.reshape(real - r2,(-1,1)),ord=2))
+    # #print(time.time()-tt)
+    #plt.imshow(r2)
     #plt.clim(0, 1)
     plt.show()
 
