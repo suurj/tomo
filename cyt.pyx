@@ -718,7 +718,7 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
     cdef int[:] Lyindices =  Ly.indices
     cdef int[:] Lyptr =  Ly.indptr
  
-    
+
     
     def pdf(xf):
         #return np.ravel(np.exp(-Ci * (M @ x - y).T @ (M @ x - y)))
