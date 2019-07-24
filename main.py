@@ -23,7 +23,7 @@ class tomography:
         (self.dim, self.dimx) = self.image.shape
         if (self.dim != self.dimx):
             raise Exception('Image is not rectangular.')
-        self.theta = np.linspace(0., 179., ntheta, endpoint=True)
+        self.theta = np.linspace(0., 180., ntheta, endpoint=False)
         self.theta=self.theta/360*2*np.pi
         self.flattened = np.reshape(self.image, (-1, 1))
         (self.N_r, self.N_theta) = (math.ceil(np.sqrt(2)*self.dim),ntheta)#self.radonww(self.image, self.theta, circle=True)).shape
@@ -503,7 +503,7 @@ class tomography:
 if __name__ == "__main__":
 
     np.random.seed(2)
-    t = tomography("shepp128.png",1.0,50,0.02)
+    t = tomography("shepp128.png",1.0,2,0.02)
     real = t.target()
     #sg = t.sinogram()
     #t.sinogram()
@@ -511,7 +511,7 @@ if __name__ == "__main__":
     #t = tomography("shepp.png",0.1,20,0.2)
     #r = t.mwg_cauchy(0.05,10000,100)
     #r = t.hmcmc_tv(5,220,30)
-    #r = t.hmcmc_cauchy(0.01,150,30)
+    r = t.hmcmc_cauchy(0.01,100,15)
     #r = t.hmcmc_tikhonov(50, 200, 20)
     # #r = t.hmcmc_wavelet(25, 250, 20,type='haar')
     # #print(np.linalg.norm(real - r))
@@ -520,7 +520,7 @@ if __name__ == "__main__":
     #r = t.map_tv(1,True)
     #r = t.map_cauchy(0.01,True)
     #r = t.map_tikhonov(10 / (t.dim*t.dim))
-    r = t.map_tikhonov(10,True,order=1)
+    #r = t.map_tikhonov(10,True,order=1)
     # #
     # # # # print(time.time()-tt)
     # # # #
@@ -528,13 +528,13 @@ if __name__ == "__main__":
     plt.imshow(r)
     # # #plt.plot(r[3000,:],r[2000,:],'*r')
     #plt.clim(0, 1)
-    #plt.figure()
+    plt.figure()
     #r2 = t.mwg_cauchy(0.05, 10000, 100)
     #r2 = t.map_tv(1)
     #r2 = t.map_cauchy(0.1)
     #r2 = t.map_cauchy(10**(9)/(1/t.dim))
     #r2 = t.map_cauchy(0.0001*(1/(t.dim**2)))
-    #r2 = t.map_cauchy(0.01)
+    r2 = t.map_cauchy(0.01)
     #r2 = t.map_tikhonov(5)
     # #print(np.linalg.norm(real - r))
     # #q = iradon_sart(q, theta=theta)
@@ -542,10 +542,10 @@ if __name__ == "__main__":
     # #tt = time.time()
     # #r2 = t.map_tikhonov(50)
     # #r2 = t.map_wavelet(25,'haar')
-    # print(np.linalg.norm(np.reshape(real - r, (-1, 1)),ord=2))
-    # print(np.linalg.norm(np.reshape(real - r2,(-1,1)),ord=2))
+    print(np.linalg.norm(np.reshape(real - r, (-1, 1)),ord=2))
+    print(np.linalg.norm(np.reshape(real - r2,(-1,1)),ord=2))
     # #print(time.time()-tt)
-    #plt.imshow(r2)
+    plt.imshow(r2)
     #plt.clim(0, 1)
     plt.show()
 

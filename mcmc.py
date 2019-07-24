@@ -355,12 +355,12 @@ x = np.zeros((2,))
 uf = lambda x: -tfun_tikhonov(x,Q)
 su = lambda x: True
 t = time.time()
-#ww=pytwalk(U=uf,Supp=su,n=2)
-#res=ww.Run( T=50000, x0=0*np.ones(2), xp0=1*np.ones(2))
-#rr = res.T
-#rr = rr[0:2,:]
+ww=pytwalk(U=uf,Supp=su,n=2)
+res=ww.Run( T=50000, x0=0*np.ones(2), xp0=1*np.ones(2))
+rr = res.T
+rr = rr[0:2,:]
 #ww.Hist()
-rr=hmc(10000,x,Q,100,cm=False)
+#rr=hmc(10000,x,Q,100,cm=False)
 #print(rr)
 print(time.time()-t)
 print(np.cov(rr))
