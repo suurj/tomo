@@ -501,16 +501,16 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
     w = M@x
     w2 = Lx@x
     w3 = Ly@x
-    value = np.sum((w-y).T@(w-y))
-    value2 = np.sum(np.abs(w2))
-    value3 = np.sum(np.abs(w3))
+    #value = np.sum((w-y).T@(w-y))
+    #value2 = np.sum(np.abs(w2))
+    #value3 = np.sum(np.abs(w3))
     
     cdef double[:, :] lhcompv = w
     cdef double[:, :] prcompv = w2
     cdef double[:, :] prcompv2 = w3
-    cdef double likelihood = value
-    cdef double prior = value2
-    cdef double prior2 = value3
+    #cdef double likelihood = value
+    #cdef double prior = value2
+    #cdef double prior2 = value3
     #print(pdf(x0))
    
     cdef int i
@@ -592,9 +592,9 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
                     values[j] = new
                     currentvalue = new
                     #chainv[j,i] = new
-                    likelihood = likelihood + change
-                    prior = prior + change2
-                    prior2 = prior2 + change3
+                    #likelihood = likelihood + change
+                    #prior = prior + change2
+                    #prior2 = prior2 + change3
 
                     start = Lxptr[j]
                     stop = Lxptr[j+1]    
@@ -741,16 +741,17 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
     w = M@x
     w2 = Lx@x
     w3 = Ly@x
-    value = np.sum((w-y).T@(w-y))
-    value2 = np.prod(1/(alpha+np.power(w2,2)))
-    value3 = np.prod(1/(alpha+np.power(w3,2)))
+    #value = np.sum((w-y).T@(w-y))
+    #value2 = np.prod(1/(alpha+np.power(w2,2)))
+    #value3 = np.prod(1/(alpha+np.power(w3,2)))
+    #print(value,value2,value3)
     
     cdef double[:, :] lhcompv = w
     cdef double[:, :] prcompv = w2
     cdef double[:, :] prcompv2 = w3
-    cdef double likelihood = value
-    cdef double prior = value2
-    cdef double prior2 = value3
+    #cdef double likelihood = value
+    #cdef double prior = value2
+    #cdef double prior2 = value3
     #print(pdf(x0))
    
     cdef int i

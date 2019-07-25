@@ -522,8 +522,8 @@ if __name__ == "__main__":
 
     np.random.seed(2)
     theta = (0,45,50)
-    #theta = 50
-    t = tomography("shepp128.png",1.0,theta,0.05)
+    theta = 50
+    t = tomography("shepp128.png",1.0,theta,0.02)
     real = t.target()
     #t.saveresult(real)
     #sg = t.sinogram()
@@ -534,7 +534,7 @@ if __name__ == "__main__":
 
     #sg2 = t.radonww()
     #t = tomography("shepp.png",0.1,20,0.2)
-    #r = t.mwg_cauchy(0.05,10000,100)
+    r = t.mwg_tv(1,5000,200)
     #r = t.hmcmc_tv(5,220,30)
     #r = t.hmcmc_cauchy(0.01,100,15)
     #r = t.hmcmc_tikhonov(50, 200, 20)
@@ -555,24 +555,24 @@ if __name__ == "__main__":
     #plt.clim(0, 1)
     #plt.figure()
     #r2 = t.mwg_cauchy(0.05, 10000, 100)
-    #r2 = t.map_tv(10)
+    #r2 = t.map_tv(5)
     #r2 = t.map_cauchy(0.1)
     #r2 = t.map_cauchy(10**(9)/(1/t.dim))
     #r2 = t.map_cauchy(0.0001*(1/(t.dim**2)))
-    # r2 = t.map_cauchy(0.005)
+    #r2 = t.map_cauchy(0.01)
     # #r2 = t.map_tikhonov(5)
     # # #print(np.linalg.norm(real - r))
     # # #q = iradon_sart(q, theta=theta)
     # # #r2 = t.map_tikhonov(50.0)
     # # #tt = time.time()
-    # #r2 = t.map_tikhonov(50)
-    # #r2 = t.map_wavelet(2,'db1')
+    #r2 = t.map_tikhonov(5)
+    #r2 = t.map_wavelet(0.5,'db2')
     # #print(np.linalg.norm(np.reshape(real - r, (-1, 1)),ord=2))
-    # print(np.linalg.norm(np.reshape(real - r2,(-1,1)),ord=2))
+    #print(np.linalg.norm(np.reshape(real - r2,(-1,1)),ord=2))
     # # #print(time.time()-tt)
-    # plt.imshow(r2)
-    # plt.clim(0, 1)
-    # plt.show()
+    plt.imshow(r)
+    plt.clim(0, 1)
+    plt.show()
 
 
 #
