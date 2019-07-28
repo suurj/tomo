@@ -142,6 +142,8 @@ def waveletonce(g,h,n):
 # The result is a matrix of ceil(sqrt(2)xN)xT x NxN. Four points are used in first order pixel oriented interpolation within each pixel's neighbourhood.
 ctypedef vector[int]* diptr
 ctypedef vector[double]* dfptr
+cdef double MP2 = M_PI/2.0
+cdef double MP4 = M_PI/4.0
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True) 
@@ -180,21 +182,20 @@ def  radonmatrix(size,theta,Nthreads=4):
     if (T == 1):
         dt = 0
     else:
-        dt = theta[1]-theta[0]
+        dt = (theta[1]-theta[0])
         
     
     start = time.time() 
     with nogil:                     
         for r in prange (0,R,num_threads=Nth):
-            for t in range (0,T):
-                
-                tt = tmin + t*dt
+            for t in range (0,T):               
+                tt = -(tmin + t*dt)
                 for n in range (0,N):
                     for m in range( 0,M):
-                        ray = dx/2.0 * gs(2.0*(pmax-r*dp+dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
-                        ray = ray + dx/2.0 * gs(2.0*(pmax-r*dp+dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
-                        ray = ray + dx/2.0 * gs(2.0*(pmax-r*dp-dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
-                        ray = ray + dx/2.0 * gs(2.0*(pmax-r*dp-dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
+                        ray = dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
+                        ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
+                        ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
+                        ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
                         ray = ray/4.0
                         if(ray > 0.0):
                             th = thid()
@@ -248,14 +249,15 @@ cdef inline double gs(double p,double t) nogil:
     if (p<0):
         p = -p
    
-    t = (t%(M_PI/2.0))
-    if(t >= M_PI/4.0):
-        t = M_PI/2.0-t
+    #t = (t%(M_PI/2.0))
+    t = (t % (MP2) + (MP2)) % MP2
+    if(t >= MP4):
+        t = MP2-t
  
     
     if( p > M_SQRT2):
-        a = 0
-        return a
+        return 0.0
+        #return a
     else:
         x1m = p/cos(t) + tan(t)
         x1 = p/cos(t) - tan(t)
@@ -263,16 +265,16 @@ cdef inline double gs(double p,double t) nogil:
         
    
         if (x1 < 1.0 and x1m  < 1.0):
-            a = sqrt(4.0+(x1-x1m)*(x1-x1m))
-            return a
+            return sqrt(4.0+(x1-x1m)*(x1-x1m))
+            #return a
             
         elif (x1 < 1.0 and x1m  > 1.0):
-            a = sqrt((1.0-x1)*(1.0-x1) + (1.0-y1)*(1.0-y1))
-            return a
+            return sqrt((1.0-x1)*(1.0-x1) + (1.0-y1)*(1.0-y1))
+            #return a
             
         elif (x1 >=1.0):
-            a = 0.0
-            return a
+            return 0.0
+            #return a
             
         else:
             return -9.0

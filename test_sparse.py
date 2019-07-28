@@ -15,111 +15,177 @@ import matplotlib.pyplot as plt
 from skimage.transform import iradon_sart
 import scipy.io
 from timeit import timeit
+from io import BytesIO
 from matrices import radonmatrix
 from collections import namedtuple
 #from cplus import f
+import cairosvg
+from matrices import radonmatrix
+# def gs(p,t):
+#     M_PI =np.pi
+#     M_SQRT2 = np.sqrt(2)
+#     if (p<0):
+#         p = -p
+#
+#     t = (t % (M_PI/2.0))
+#     if(t >= M_PI/4.0):
+#         t = M_PI/2.0-t
+#
+#     if( p > M_SQRT2):
+#         a = 0
+#         return a
+#     else:
+#         x1m = p/np.cos(t) + np.tan(t)
+#         x1 = p/np.cos(t) - np.tan(t)
+#         y1 = p/np.sin(t) - 1.0/np.tan(t)
+#
+#
+#         if (x1 < 1.0 and x1m  < 1.0):
+#             a = np.sqrt(4.0+(x1-x1m)*(x1-x1m))
+#             return a
+#
+#         elif (x1 < 1.0 and x1m  > 1.0):
+#             a = np.sqrt((1.0-x1)*(1.0-x1) + (1.0-y1)*(1.0-y1))
+#             return a
+#
+#         elif (x1 >=1.0):
+#             a = 0.0
+#             return a
+#
+#         else:
+#             return -9.0
 
-def matern(N,l1,l2,alpha):
-    N = int(N)
-    L1 = np.ones((N,N))
-    L1 = np.ravel(L1)
-    L2 = np.ones((N, N))
-    L2 = np.ravel(L2)
-    r = np.arange(0,N)
-    r = np.linspace(-1,1,N,endpoint=True)
-    xi = np.tile(r,(N,1))
-    xif = np.reshape(xi,(-1,1))
-    xif = np.ravel(xif)
-    yi = np.flip(np.copy(xi.T),axis=0)
-    yif = np.reshape(yi, (-1, 1))
-    yif = np.ravel(yif)
-    #M[np.abs(xif)<0.5] = np.where(xif**2)
-    #M=np.where((np.abs(xif)<0.5) * (yif < 0) >=0,xif**2,M)
-    #M = np.where((xif**2 + yif**2/3 <0.25) , 5, M)
-    #L1 = np.where((l1(xif,yif)), l1as(xif,yif), L1)
-    L1=np.vectorize(l1)(xif, yif)
-    #L2 = np.where((l2(xif, yif)), l2as(xif, yif), L2)
-    L2 = np.vectorize(l2)(xif,yif)
-    L1f = L1.reshape((-1,1))
-    L2f = L2.reshape((-1,1))
-    a = np.vectorize(alpha)(xif,yif)
-    #a = 1#np.where((l1(xif,yif)), l1as(xif,yif), L1)
-    #M[N/2,N/2] = 0
-    #M = np.reshape(M,(N,N))
-
-    regvalues = np.array([2, -1, -1, -1, -1])
-    offsets = np.array([0, 1, -1, N - 1, -N + 1])
-    reg1d = sp.diags(regvalues, offsets, shape=(N, N))
-    #reg1d = reg1d.toarray()
-    regx = sp.kron(sp.eye(N), reg1d)
-    regy = sp.kron(reg1d, sp.eye(N))
-    #regy = regy.toarray()
-    #regx = regx.toarray()
-    H =  sp.eye(N*N)+regy.multiply( L1[:, np.newaxis]) +  regx.multiply( L2[:, np.newaxis])
-    #H = H.toarray()
-    Gd = np.ravel(a)*np.sqrt(np.ravel(L1f*L2f))
-    Ginv = sp.diags(1/Gd)
-    S =  ((H.T).dot(Ginv)).dot(H)
-    S = S.toarray()
-    return S
-
-def l(x,y):
-    if (x *x  + y *y  / 3 < 0.25):
-        return 2
-    else:
-        return 1
-
-def alpha(x,y):
-    return 10
-
-#alpha =lambda x,y: 1
-#l1 = lambda x,y: x**2 + y**2/3 <0.25
-#l1as = lambda x,y: 2
-t = time.time()
-f=matern(32,l,l,alpha)
-print(time.time()-t)
-plt.imshow(f)
+# tt = np.zeros((50,50))
+# theta = np.linspace(np.pi,-np.pi,endpoint=False)
+# rh = np.linspace(-np.sqrt(2),np.sqrt(2),50,endpoint=True)
+# for t in range(50):
+#     for r in range (50):
+#         tt[r,t] = gs(rh[r],theta[t])
+N = 60#541
+N_theta = 13#127
+fname = 'radonmatrix/' + 'full-' + str(N) + 'x' + str(N_theta) + '.npz'
+theta=np.linspace(0.,180., N_theta, endpoint=False)
+theta=theta/360*2*np.pi
+#
+image=imread(BytesIO(cairosvg.svg2png(url="big.svg",output_width=N,output_height=N)),as_gray=True)
+radonoperator=radonmatrix(N, theta)
+# #radonoperator = sp.load_npz(fname)/N
+flattened = np.reshape(image, (-1, 1))
+measurement = radonoperator @ flattened
+sgram = np.reshape(measurement,(math.ceil(np.sqrt(2)*N),N_theta))
+# #sgram = radon(image,theta/(2*np.pi)*360,circle=False)
+# #radonoperator= radonmatrix(N, theta)
+sp.save_npz(fname,radonoperator)
+# sgram2 = radon(image,theta/(2*np.pi)*360,circle=False)
+plt.imshow(sgram,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
+# plt.figure()
+# plt.imshow(sgram2,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
+# #plt.imshow(tt,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
+# plt.figure()
+# plt.imshow(iradon_sart(sgram2,theta/(2*np.pi)*360))
 plt.show()
 exit(0)
-
-def  gradient(f,Q,x):
-    N = x.shape[0]
-    eps = 1e-7;
-    xn = x.copy(); xe = x.copy();
-    gr = np.zeros((N,1));
-    for i  in range(N):
-        xn[i] = x[i] + eps;
-        xe[i] = x[i] - eps;
-        gr[i] = (f(xn,Q) -f(xe,Q))/(2*eps);
-        xn[i] = x[i];
-        xe[i] = x[i];
-
-    return  gr
-
-from cyt import tfun_cauchy, mwg_cauchy , mwg_tv,tfun_tikhonov, tikhonov_grad,tfun_tv, tv_grad ,cauchy_grad,argumentspack
-Q = argumentspack()
-Q.s2 = 1
-Q.b = 0.3
-Q.M = np.array([[3, -1], [-1, 3]])
-Q.M = np.linalg.inv(Q.M)
-Q.M = np.linalg.cholesky(Q.M)
-Q.M = Q.M.T
-Q.Lx = np.zeros((1,2))
-Q.Ly=np.zeros((1,2))
-Q.Ly = csc_matrix(Q.Ly)
-Q.Lx = csc_matrix(Q.Lx)
-Q.y = np.array([[2.0,-50.0]]).T
-Q.y = Q.M.dot(Q.y)
-np.random.seed(1)
-x = np.random.randn(2,1)
-t = time.time()
-nadapt = 500
-gg = mwg_tv(25000,nadapt,Q,x , sampsigma=1,cmesti=False)
-print(time.time()-t)
-print(np.cov(gg[:,nadapt:]))
-print(np.mean(gg[:,nadapt:],axis=1))
-plt.plot(gg[0,:],gg[1,:],'*r')
-plt.show()
+# def matern(N,l1,l2,alpha):
+#     N = int(N)
+#     L1 = np.ones((N,N))
+#     L1 = np.ravel(L1)
+#     L2 = np.ones((N, N))
+#     L2 = np.ravel(L2)
+#     r = np.arange(0,N)
+#     r = np.linspace(-1,1,N,endpoint=True)
+#     xi = np.tile(r,(N,1))
+#     xif = np.reshape(xi,(-1,1))
+#     xif = np.ravel(xif)
+#     yi = np.flip(np.copy(xi.T),axis=0)
+#     yif = np.reshape(yi, (-1, 1))
+#     yif = np.ravel(yif)
+#     #M[np.abs(xif)<0.5] = np.where(xif**2)
+#     #M=np.where((np.abs(xif)<0.5) * (yif < 0) >=0,xif**2,M)
+#     #M = np.where((xif**2 + yif**2/3 <0.25) , 5, M)
+#     #L1 = np.where((l1(xif,yif)), l1as(xif,yif), L1)
+#     L1=np.vectorize(l1)(xif, yif)
+#     #L2 = np.where((l2(xif, yif)), l2as(xif, yif), L2)
+#     L2 = np.vectorize(l2)(xif,yif)
+#     L1f = L1.reshape((-1,1))
+#     L2f = L2.reshape((-1,1))
+#     a = np.vectorize(alpha)(xif,yif)
+#     #a = 1#np.where((l1(xif,yif)), l1as(xif,yif), L1)
+#     #M[N/2,N/2] = 0
+#     #M = np.reshape(M,(N,N))
+#
+#     regvalues = np.array([2, -1, -1, -1, -1])
+#     offsets = np.array([0, 1, -1, N - 1, -N + 1])
+#     reg1d = sp.diags(regvalues, offsets, shape=(N, N))
+#     #reg1d = reg1d.toarray()
+#     regx = sp.kron(sp.eye(N), reg1d)
+#     regy = sp.kron(reg1d, sp.eye(N))
+#     #regy = regy.toarray()
+#     #regx = regx.toarray()
+#     H =  sp.eye(N*N)+regy.multiply( L1[:, np.newaxis]) +  regx.multiply( L2[:, np.newaxis])
+#     #H = H.toarray()
+#     Gd = np.ravel(a)*np.sqrt(np.ravel(L1f*L2f))
+#     Ginv = sp.diags(1/Gd)
+#     S =  ((H.T).dot(Ginv)).dot(H)
+#     S = S.toarray()
+#     return S
+#
+# def l(x,y):
+#     if (x *x  + y *y  / 3 < 0.25):
+#         return 2
+#     else:
+#         return 1
+#
+# def alpha(x,y):
+#     return 10
+#
+# #alpha =lambda x,y: 1
+# #l1 = lambda x,y: x**2 + y**2/3 <0.25
+# #l1as = lambda x,y: 2
+# t = time.time()
+# f=matern(32,l,l,alpha)
+# print(time.time()-t)
+# plt.imshow(f)
+# plt.show()
+# exit(0)
+#
+# def  gradient(f,Q,x):
+#     N = x.shape[0]
+#     eps = 1e-7;
+#     xn = x.copy(); xe = x.copy();
+#     gr = np.zeros((N,1));
+#     for i  in range(N):
+#         xn[i] = x[i] + eps;
+#         xe[i] = x[i] - eps;
+#         gr[i] = (f(xn,Q) -f(xe,Q))/(2*eps);
+#         xn[i] = x[i];
+#         xe[i] = x[i];
+#
+#     return  gr
+#
+# from cyt import tfun_cauchy, mwg_cauchy , mwg_tv,tfun_tikhonov, tikhonov_grad,tfun_tv, tv_grad ,cauchy_grad,argumentspack
+# Q = argumentspack()
+# Q.s2 = 1
+# Q.b = 0.3
+# Q.M = np.array([[3, -1], [-1, 3]])
+# Q.M = np.linalg.inv(Q.M)
+# Q.M = np.linalg.cholesky(Q.M)
+# Q.M = Q.M.T
+# Q.Lx = np.zeros((1,2))
+# Q.Ly=np.zeros((1,2))
+# Q.Ly = csc_matrix(Q.Ly)
+# Q.Lx = csc_matrix(Q.Lx)
+# Q.y = np.array([[2.0,-50.0]]).T
+# Q.y = Q.M.dot(Q.y)
+# np.random.seed(1)
+# x = np.random.randn(2,1)
+# t = time.time()
+# nadapt = 500
+# gg = mwg_tv(25000,nadapt,Q,x , sampsigma=1,cmesti=False)
+# print(time.time()-t)
+# print(np.cov(gg[:,nadapt:]))
+# print(np.mean(gg[:,nadapt:],axis=1))
+# plt.plot(gg[0,:],gg[1,:],'*r')
+# plt.show()
 # r = cauchy_grad(x,Q)
 # rr = gradient(tfun_cauchy,Q,x)
 # w = tikhonov_grad(x,Q)

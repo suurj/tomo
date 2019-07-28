@@ -3,7 +3,6 @@ from skimage.transform import radon, rescale
 import warnings
 import numpy as np
 import pywt
-#from scipy.sparse import csc_matrix,csc_matrix,lil_matrix
 from scipy.optimize import  minimize
 import time
 import math
@@ -17,7 +16,6 @@ from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_gra
 class tomography:
 
     def __init__(self, filename,scaling=0.1,itheta=40,noise=0.000000,globalprefix=""):
-        #self.normalize = normalize
         self.image = imread(filename, as_gray=True)
         self.image = rescale(self.image, scale=scaling, mode='edge', multichannel=False)
         (self.dim, self.dimx) = self.image.shape
@@ -28,7 +26,7 @@ class tomography:
             self.theta=self.theta/360*2*np.pi
             self.flattened = np.reshape(self.image, (-1, 1))
             self.globalprefix = globalprefix
-            (self.N_r, self.N_theta) = (math.ceil(np.sqrt(2)*self.dim),itheta)#self.radonww(self.image, self.theta, circle=True)).shape
+            (self.N_r, self.N_theta) = (math.ceil(np.sqrt(2)*self.dim),itheta)
             fname = 'radonmatrix/'+ 'full-' +str(self.dim) + 'x' + str(self.N_theta) + '.npz'
 
         else:
@@ -37,23 +35,11 @@ class tomography:
             self.flattened = np.reshape(self.image, (-1, 1))
             self.globalprefix = globalprefix
             (self.N_r, self.N_theta) = (
-            math.ceil(np.sqrt(2) * self.dim), itheta[2])  # self.radonww(self.image, self.theta, circle=True)).shape
+            math.ceil(np.sqrt(2) * self.dim), itheta[2])
             fname = 'radonmatrix/' + str(itheta[0]) + '_' + str(itheta[1]) + '_' + str(itheta[2]) + '-' + str(self.dim) + 'x' + str(self.N_theta) + '.npz'
-        #fname = 'koe.npz'
 
 
         if (not os.path.isfile(fname)):
-            # M = np.zeros([self.N_r * self.N_theta, self.dim * self.dim])
-            # #M = sp.lil_matrix((self.N_r * self.N_theta, self.dim * self.dim))
-            # empty = np.zeros([self.dim, self.dim])
-            # for i in range(0, self.dim):
-            #     for j in range(0, self.dim):
-            #         empty[i, j] = 1
-            #         ww = np.ravel(np.reshape(radon(empty, self.theta, circle=False), (self.N_r * self.N_theta, 1)))
-            #         M[:, i * self.dim + j] = ww# np.reshape(radon(empty, self.theta, circle=False), (self.N_r * self.N_theta, 1))
-            #         empty[i, j] = 0
-            # M = sp.csc_matrix(M)
-            # sp.save_npz(fname,M)
             from matrices import radonmatrix
 
             self.radonoperator= radonmatrix(self.dim, self.theta)
@@ -63,12 +49,6 @@ class tomography:
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         self.normalizedradonoperator = self.radonoperator/self.dim
         self.radonoperator = self.normalizedradonoperator
-        # if (self.normalize):
-        #     self.radonoperator = self.radonoperator/(self.dim)
-
-        # self.measurement = np.exp(-self.radonoperator @ self.flattened) + noise * np.random.randn(self.N_r * self.N_theta, 1)
-        # self.measurement[self.measurement<=0] = 10**(-19)
-        # self.lines = -np.log(self.measurement)
 
         self.measurement = self.radonoperator @ self.flattened
         self.normalizedmeasurement = self.normalizedradonoperator@self.flattened
@@ -556,7 +536,7 @@ if __name__ == "__main__":
     # # # # print(time.time()-tt)
     # # # #
     tt = time.time()
-    r = t.hmcmc_cauchy(0.01,100,15)
+    r = t.hmcmc_cauchy(0.01,100,20)
     #r = t.mwg_cauchy(0.01, 1000, 100)
     print(time.time()-tt)
     #r = t.hmcmc_tv(10, 200, 20)
