@@ -4,12 +4,13 @@ import scipy.sparse as sp
 #import autograd_sparse as sp
 #import autograd.numpy as np
 from sys import getsizeof
-from skimage.transform import radon, rescale
+from skimage.transform import radon, rescale,resize
 from scipy.sparse import csr_matrix,csc_matrix,lil_matrix, coo_matrix, dok_matrix
 from cyt import mwg_cauchy,mwg_tv, argumentspack
 import copy
 import math
 import time
+import scipy.interpolate as interpolate
 from skimage.io import imread
 import matplotlib.pyplot as plt
 from skimage.transform import iradon_sart
@@ -61,27 +62,55 @@ from matrices import radonmatrix
 # for t in range(50):
 #     for r in range (50):
 #         tt[r,t] = gs(rh[r],theta[t])
-N = 60#541
-N_theta = 13#127
-fname = 'radonmatrix/' + 'full-' + str(N) + 'x' + str(N_theta) + '.npz'
+N = 64#541
+N_big = 128
+N_theta = 50#127
+N_thetabig = 50
+fname = 'radonmatrix/' + 'full-' + str(N_big) + 'x' + str(N_thetabig) + '.npz'
 theta=np.linspace(0.,180., N_theta, endpoint=False)
 theta=theta/360*2*np.pi
+N_r_big = math.ceil(np.sqrt(2) * N_big)
+N_r = math.ceil(np.sqrt(2) * N)
+rhoobig = np.linspace(-np.sqrt(2), np.sqrt(2), N_r_big, endpoint=True)
+rhoo = np.linspace(-np.sqrt(2), np.sqrt(2), N_r, endpoint=True)
 #
-image=imread(BytesIO(cairosvg.svg2png(url="big.svg",output_width=N,output_height=N)),as_gray=True)
-radonoperator=radonmatrix(N, theta)
-# #radonoperator = sp.load_npz(fname)/N
-flattened = np.reshape(image, (-1, 1))
-measurement = radonoperator @ flattened
-sgram = np.reshape(measurement,(math.ceil(np.sqrt(2)*N),N_theta))
+image=imread(BytesIO(cairosvg.svg2png(url="big.svg",output_width=128,output_height=128)),as_gray=True)
+image2 = resize(image, (64, 64),anti_aliasing=False,preserve_range=True,order=1,mode='symmetric')
+flattened = np.reshape(image,(-1,1))
+noise = 0.01
+
+radonoperatorbig = sp.load_npz(fname)/N_big
+simulated = radonoperatorbig @ flattened
+maxsim = np.max(simulated)
+simulated = simulated + maxsim*noise*np.random.randn(N_r_big * N_thetabig, 1)
+sgramsim = np.reshape(simulated,(N_r_big,N_thetabig))
+#xx, yy = np.meshgrid(theta, rhoobig)
+interp = interpolate.RectBivariateSpline(rhoobig,theta,sgramsim)
+# xnew, ynew = np.meshgrid( rhoo,theta)
+# xnew = np.reshape(xnew,(-1,))
+# ynew = np.reshape(ynew,(-1,))
+lines = interp( rhoo,theta)
+sgram = lines
+#sgram = np.reshape(lines,(N_r,N_theta))
+
+
+#radonoperator=radonmatrix(N, theta)
+# radonoperator = sp.load_npz(fname)/N
+# flattened = np.reshape(image, (-1, 1))
+# measurement = radonoperator @ flattened
+# sgram = np.reshape(measurement,(math.ceil(np.sqrt(2)*N),N_theta))
 # #sgram = radon(image,theta/(2*np.pi)*360,circle=False)
 # #radonoperator= radonmatrix(N, theta)
-sp.save_npz(fname,radonoperator)
-# sgram2 = radon(image,theta/(2*np.pi)*360,circle=False)
-plt.imshow(sgram,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
-# plt.figure()
+#sp.save_npz(fname,radonoperator)
+sgram2 = radon(image,theta/(2*np.pi)*360,circle=False)
+plt.imshow(sgramsim,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
+#plt.imshow(sgram,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
+plt.figure()
+plt.imshow(sgram2,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
 # plt.imshow(sgram2,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
 # #plt.imshow(tt,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
-# plt.figure()
+plt.figure()
+plt.imshow(sgram,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
 # plt.imshow(iradon_sart(sgram2,theta/(2*np.pi)*360))
 plt.show()
 exit(0)
