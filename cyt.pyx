@@ -356,11 +356,12 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
 @cython.boundscheck(False)
 @cython.wraparound(False) 
 @cython.cdivision(True)
-def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
+def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
     if (Nadapt >= N):
         raise Exception('Nadapt <= N.')
     
     cdef int adapt = Nadapt
+    cdef int thin = thinning
     y = Q.y
     M = Q.M
     Lx = Q.Lx
@@ -403,7 +404,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
  
     
     if (cm==False):
-        chain = np.zeros((dim, N))
+        chain = np.zeros((dim, N//thin+1))
         chain[:,0] = np.ravel(x)
     else:
         chain = np.zeros((dim,1))
@@ -436,7 +437,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
     cdef double[:] values = np.copy(np.ravel(x))
     cdef double[:] cmestimate = cmest
     
-    for i in range(1,N):
+    for i in range(1,N+1):
         randoms = np.random.randn(dim,)
         accept = np.random.rand(dim,)
         acceptv = accept
@@ -510,8 +511,9 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
                     values[j] = old
                     #chainv[j,i] = old
                     
-                if (cm==False):
-                    chainv[j,i] = values[j]
+                if ((cm==0) and (i%thin == 0)):
+                    chainv[j,i//thin] = values[j]
+                    
                 else:
                     if(i > adapt):
                         #cmestimate[j]  = 1.0 / ((i+1)) * ((i) * cmestimate[j] + values[j])
@@ -539,11 +541,12 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
 @cython.boundscheck(False)
 @cython.wraparound(False) 
 @cython.cdivision(True)
-def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
+def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
     if (Nadapt >= N):
         raise Exception('Nadapt <= N.')
     
     cdef int adapt = Nadapt
+    cdef int thin = thinning
     y = Q.y
     M = Q.M
     Lx = Q.Lx
@@ -585,7 +588,7 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
  
    
     if (cm==0):
-        chain = np.zeros((dim, N))
+        chain = np.zeros((dim, N//thin+1))
         chain[:,0] = np.ravel(x)
     else:
         chain = np.zeros((dim,1))
@@ -617,7 +620,7 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
     cdef double[:] values = np.ravel(np.copy(x))
     cdef double[:] cmestimate = cmest
 
-    for i in range(1,N):
+    for i in range(1,N+1):
         randoms = np.random.randn(dim,)
         accept = np.random.rand(dim,)
         acceptv = accept
@@ -688,8 +691,8 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False):
                 else:
                     values[j] = old
                     
-                if (cm==0):
-                    chainv[j,i] = values[j]
+                if ((cm==0) and (i%thin == 0)):
+                    chainv[j,i//thin] = values[j]
                 else:
                     if(i > adapt):
                         #cmestimate[j]  = 1.0 / ((i+1)) * ((i) * cmestimate[j] + values[j])

@@ -302,7 +302,7 @@ class tomography:
         # x0 = np.reshape(self.map_tikhonov(alpha),(-1,1))
         # x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
         x0 = 0.2 * np.ones((self.dim * self.dim, 1))
-        cm = mwg_tv(M, Madapt, self.Q, x0, sampsigma=1.0, cmesti=True)
+        cm = mwg_tv(M, Madapt, self.Q, x0, sampsigma=1.0, cmesti=True,thinning=10)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -331,7 +331,7 @@ class tomography:
         # x0 = np.reshape(self.map_tikhonov(alpha),(-1,1))
         # x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
         x0 = 0.5 * np.ones((self.dim * self.dim, 1))
-        cm = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmesti=True)
+        cm = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmesti=True,thinning=10)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -474,7 +474,7 @@ if __name__ == "__main__":
     #r2 = t.map_tv(5)
     #r2 = t.map_cauchy(0.001)
     #r2 = t.map_cauchy(0.01)
-    r2 = t.map_cauchy( 0.01)
+    r2 = t.mwg_tv( 5,1000,100)
     #r2 = t.map_tv(5)
     # # #print(np.linalg.norm(real - r))
     # # #q = iradon_sart(q, theta=theta)
