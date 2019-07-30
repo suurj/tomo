@@ -10,6 +10,7 @@ from cyt import mwg_cauchy,mwg_tv, argumentspack
 import copy
 import math
 import time
+import scipy.signal as sg
 import scipy.interpolate as interpolate
 from skimage.io import imread
 import matplotlib.pyplot as plt
@@ -21,6 +22,11 @@ from matrices import radonmatrix
 from collections import namedtuple
 #from cplus import f
 import cairosvg
+import h5py
+
+r = np.random.randn(50,50)
+
+exit(0)
 from matrices import radonmatrix
 # def gs(p,t):
 #     M_PI =np.pi
@@ -62,35 +68,35 @@ from matrices import radonmatrix
 # for t in range(50):
 #     for r in range (50):
 #         tt[r,t] = gs(rh[r],theta[t])
-N = 64#541
-N_big = 128
-N_theta = 50#127
-N_thetabig = 50
-fname = 'radonmatrix/' + 'full-' + str(N_big) + 'x' + str(N_thetabig) + '.npz'
-theta=np.linspace(0.,180., N_theta, endpoint=False)
-theta=theta/360*2*np.pi
-N_r_big = math.ceil(np.sqrt(2) * N_big)
-N_r = math.ceil(np.sqrt(2) * N)
-rhoobig = np.linspace(-np.sqrt(2), np.sqrt(2), N_r_big, endpoint=True)
-rhoo = np.linspace(-np.sqrt(2), np.sqrt(2), N_r, endpoint=True)
+# N = 64#541
+# N_big = 128
+# N_theta = 50#127
+# N_thetabig = 50
+# fname = 'radonmatrix/' + 'full-' + str(N_big) + 'x' + str(N_thetabig) + '.npz'
+# theta=np.linspace(0.,180., N_theta, endpoint=False)
+# theta=theta/360*2*np.pi
+# N_r_big = math.ceil(np.sqrt(2) * N_big)
+# N_r = math.ceil(np.sqrt(2) * N)
+# rhoobig = np.linspace(-np.sqrt(2), np.sqrt(2), N_r_big, endpoint=True)
+# rhoo = np.linspace(-np.sqrt(2), np.sqrt(2), N_r, endpoint=True)
+# #
+# image=imread(BytesIO(cairosvg.svg2png(url="big.svg",output_width=128,output_height=128)),as_gray=True)
+# image2 = resize(image, (64, 64),anti_aliasing=False,preserve_range=True,order=1,mode='symmetric')
+# flattened = np.reshape(image,(-1,1))
+# noise = 0.01
 #
-image=imread(BytesIO(cairosvg.svg2png(url="big.svg",output_width=128,output_height=128)),as_gray=True)
-image2 = resize(image, (64, 64),anti_aliasing=False,preserve_range=True,order=1,mode='symmetric')
-flattened = np.reshape(image,(-1,1))
-noise = 0.01
-
-radonoperatorbig = sp.load_npz(fname)/N_big
-simulated = radonoperatorbig @ flattened
-maxsim = np.max(simulated)
-simulated = simulated + maxsim*noise*np.random.randn(N_r_big * N_thetabig, 1)
-sgramsim = np.reshape(simulated,(N_r_big,N_thetabig))
-#xx, yy = np.meshgrid(theta, rhoobig)
-interp = interpolate.RectBivariateSpline(rhoobig,theta,sgramsim)
-# xnew, ynew = np.meshgrid( rhoo,theta)
-# xnew = np.reshape(xnew,(-1,))
-# ynew = np.reshape(ynew,(-1,))
-lines = interp( rhoo,theta)
-sgram = lines
+# radonoperatorbig = sp.load_npz(fname)/N_big
+# simulated = radonoperatorbig @ flattened
+# maxsim = np.max(simulated)
+# simulated = simulated + maxsim*noise*np.random.randn(N_r_big * N_thetabig, 1)
+# sgramsim = np.reshape(simulated,(N_r_big,N_thetabig))
+# #xx, yy = np.meshgrid(theta, rhoobig)
+# interp = interpolate.RectBivariateSpline(rhoobig,theta,sgramsim)
+# # xnew, ynew = np.meshgrid( rhoo,theta)
+# # xnew = np.reshape(xnew,(-1,))
+# # ynew = np.reshape(ynew,(-1,))
+# lines = interp( rhoo,theta)
+# sgram = lines
 #sgram = np.reshape(lines,(N_r,N_theta))
 
 
