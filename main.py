@@ -1,5 +1,5 @@
 from skimage.io import imread
-from skimage.transform import radon, rescale, resize
+from skimage.transform import radon, resize
 import warnings
 import numpy as np
 import pywt
@@ -7,9 +7,11 @@ import scipy.interpolate as interpolate
 from scipy.optimize import minimize
 import time
 import math
+import sys
 import scipy.sparse as sp
 import os
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_grad, tfun_tv as ltv, tv_grad, cauchy_grad, \
     argumentspack
 
@@ -114,8 +116,12 @@ class tomography:
             noise = 0.01
         self.lhsigmsq = (maxvalue * noise) ** 2
         self.Q = argumentspack(M=self.radonoperator, y=self.lines, b=0.01, s2=self.lhsigmsq)
+        self.pbar = None
 
-    def map_tikhonov(self, alpha=1.0, display=False, order=1):
+    def mincb(self,_):
+        self.pbar.update(1)
+
+    def map_tikhonov(self, alpha=1.0, order=1,maxiter=400):
         if (order == 2):
             regvalues = np.array([2, -1, -1, -1, -1])
             offsets = np.array([0, 1, -1, self.dim - 1, -self.dim + 1])
@@ -136,10 +142,12 @@ class tomography:
         self.Q.Ly = empty
         self.Q.a = alpha
         self.Q.s2 = self.lhsigmsq
-
+        print("Running MAP estimate for Tikhonov prior.")
+        self.pbar = tqdm(total=np.Inf,file=sys.stdout)
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
         solution = minimize(self.tfun_tikhonov, x0, method='L-BFGS-B', jac=self.grad_tikhonov,
-                            options={'maxiter': 430, 'disp': display})
+                            options={'maxiter': maxiter, 'disp': False},callback=self.mincb)
+        self.pbar.close()
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -153,7 +161,7 @@ class tomography:
         ans = -tikhonov_grad(x, self.Q)
         return np.ravel(ans)
 
-    def map_tv(self, alpha=1.0, display=False):
+    def map_tv(self, alpha=1.0, maxiter=400):
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
         reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
@@ -170,10 +178,12 @@ class tomography:
         self.Q.a = alpha
         self.Q.s2 = self.lhsigmsq
         self.Q.b = 0.01
-
+        print("Running MAP estimate for TV prior.")
+        self.pbar = tqdm(total=np.Inf,file=sys.stdout)
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
         solution = minimize(self.tfun_tv, x0, method='L-BFGS-B', jac=self.grad_tv,
-                            options={'maxiter': 430, 'disp': display})
+                            options={'maxiter': maxiter, 'disp': False},callback=self.mincb)
+        self.pbar.close()
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -188,7 +198,7 @@ class tomography:
         q = -tv_grad(x, self.Q)
         return np.ravel(q)
 
-    def map_cauchy(self, alpha=1.0, display=False):
+    def map_cauchy(self, alpha=1.0, maxiter=400):
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
         reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
@@ -207,8 +217,11 @@ class tomography:
         self.Q.b = 0.01
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
         # L-BFGS-B
+        print("Running MAP estimate for Cauchy prior.")
+        self.pbar = tqdm(total=np.Inf,file=sys.stdout)
         solution = minimize(self.tfun_cauchy, x0, method='L-BFGS-B', jac=self.grad_cauchy,
-                            options={'maxiter': 450, 'disp': display})
+                            options={'maxiter': maxiter, 'disp': False},callback=self.mincb)
+        self.pbar.close()
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -223,7 +236,7 @@ class tomography:
         ans = -cauchy_grad(x, self.Q)
         return (np.ravel(ans))
 
-    def map_wavelet(self, alpha=1.0, type='haar', display=False):
+    def map_wavelet(self, alpha=1.0, type='haar', maxiter=400):
         from matrices import totalmatrix
         wl = pywt.Wavelet(type)
         g = np.array(wl.dec_lo)
@@ -239,10 +252,12 @@ class tomography:
         self.Q.a = alpha
         self.Q.b = 0.01
         self.Q.s2 = self.lhsigmsq
-
+        print("Running MAP estimate for Besov prior.")
+        self.pbar = tqdm(total=np.Inf,file=sys.stdout)
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
         solution = minimize(self.tfun_tv, x0, method='L-BFGS-B', jac=self.grad_tv,
-                            options={'maxiter': 230, 'disp': display})
+                            options={'maxiter': maxiter, 'disp': False},callback=self.mincb)
+        self.pbar.close()
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -302,6 +317,7 @@ class tomography:
         # x0 = np.reshape(self.map_tikhonov(alpha),(-1,1))
         # x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
         x0 = 0.2 * np.ones((self.dim * self.dim, 1))
+        print("Running MwG MCMC for TV prior.")
         cm = mwg_tv(M, Madapt, self.Q, x0, sampsigma=1.0, cmesti=True,thinning=10)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
@@ -331,6 +347,7 @@ class tomography:
         # x0 = np.reshape(self.map_tikhonov(alpha),(-1,1))
         # x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
         x0 = 0.5 * np.ones((self.dim * self.dim, 1))
+        print("Running MwG MCMC for Cauchy prior.")
         cm = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmesti=True,thinning=10)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
@@ -357,6 +374,7 @@ class tomography:
         self.Q.logdensity = ltv
         self.Q.gradi = tv_grad
         x0 = 0.2 * np.ones((self.dim * self.dim, 1))
+        print("Running HMC for TV prior.")
         cm = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, kappa=0.75, cm=True)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
@@ -383,7 +401,8 @@ class tomography:
         self.Q.logdensity = lcauchy
         self.Q.gradi = cauchy_grad
         x0 = 0.5 * np.ones((self.dim * self.dim, 1))
-        cm = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cm=True)
+        print("Running HMC for Cauchy prior.")
+        cm = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cm=True, thin=1)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -408,6 +427,7 @@ class tomography:
         self.Q.logdensity = ltv
         self.Q.gradi = tv_grad
         x0 = 0.5 * np.ones((self.dim * self.dim, 1))
+        print("Running HMC for Besov prior.")
         cm = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cm=True)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
@@ -432,9 +452,9 @@ class tomography:
 
 if __name__ == "__main__":
     np.random.seed(3)
-    theta = (0, 90, 50)
-    #theta = 20
-    t = tomography("shepp.png", 64, theta, 0.05, crimefree=False)
+    #theta = (0, 90, 50)
+    theta = 50
+    t = tomography("shepp.png", 128, theta, 0.05, crimefree=False)
     real = t.target()
     # t.saveresult(real)
     # sg = t.sinogram()
@@ -460,7 +480,7 @@ if __name__ == "__main__":
     # #
     # # # # print(time.time()-tt)
     # # # #
-    # tt = time.time()
+    tt = time.time()
     # r = t.hmcmc_cauchy(0.01,100,20)
     # r = t.mwg_cauchy(0.01, 1000, 100)
     # print(time.time()-tt)
@@ -474,7 +494,8 @@ if __name__ == "__main__":
     #r2 = t.map_tv(5)
     #r2 = t.map_cauchy(0.001)
     #r2 = t.map_cauchy(0.01)
-    r2 = t.mwg_tv( 5,1000,100)
+    r2 = t.hmcmc_cauchy( 0.01,200,20)
+    print(time.time()-tt)
     #r2 = t.map_tv(5)
     # # #print(np.linalg.norm(real - r))
     # # #q = iradon_sart(q, theta=theta)

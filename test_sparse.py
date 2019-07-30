@@ -23,9 +23,17 @@ from collections import namedtuple
 #from cplus import f
 import cairosvg
 import h5py
-
+from tqdm import tqdm
 r = np.random.randn(50,50)
-
+bar = tqdm(total=1000,leave=True)
+t = time.time()
+for i in range(0,1000):
+    #pass
+    bar.update(1)
+    time.sleep(0.01)
+bar.close()
+time.sleep(0.01)
+print(time.time()-t)
 exit(0)
 from matrices import radonmatrix
 # def gs(p,t):

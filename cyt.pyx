@@ -8,6 +8,8 @@ import math
 from libc.math cimport sqrt,fabs,exp, cos, tan,sin,M_SQRT2,M_PI,abs
 from libcpp.list cimport list as cpplist
 import time
+from tqdm import tqdm
+import sys
 
 # Class for passing extra arguments for functions.
 # M, Lx and Ly refer to matrices, y to a measurement vector, s2 to sigma squared. Variables a andb are used
@@ -268,11 +270,12 @@ def buildtree(theta,r,logu,v,j,epsilon,theta0,r0,Q,initialdr,currgrad):
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True)
-def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=None,cm=False):
+def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=None,cm=False,thin=1):
+    bar = tqdm(total=M,file=sys.stdout)
     theta0 = np.reshape(theta0,(-1,1))
     dim = theta0.shape[0]
     if (cm == False):
-        theta = np.zeros((dim, M))
+        theta = np.zeros((dim, M//thin + 1))
         theta[:, 0] = np.ravel(theta0)
     delta = de
     currdensity = Q.logdensity(theta0, Q)
@@ -291,8 +294,8 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
     if (de < 0.05 or de > 0.999999):
         raise Exception('Delta is not within reasonable range.')
 
-    for i in range(1,M):
-        print(i)
+    for i in range(1,M+1):
+        bar.update(1)
         r0 = np.random.randn(dim, 1)
         logu = (currdensity - 0.5*np.dot(r0.T,r0))+np.log(np.random.rand())
         initialdr = currdensity - 0.5 * np.dot(r0.T, r0)
@@ -305,8 +308,8 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
         j = 0
         n = 1.0
         s = 1.0
-        if(cm == False):
-            theta[:, i] = theta[:, i - 1]
+        if(cm == False and (i%thin == 0)):
+            theta[:, i//thin] = np.ravel(theta0)
   
         while (s==1):
             vj = np.random.choice(np.array([-1,1]))
@@ -318,8 +321,8 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
 
             if (stilde ==1):
                 if(np.random.rand() < ntilde/n):
-                    if(cm == False):
-                        theta[:, i] = np.ravel(thetatilde)
+                    if(cm == False and (i%thin == 0)):
+                        theta[:, i//thin] = np.ravel(thetatilde)
                     theta0 = thetatilde
                     currdensity= currdensitytilde
                     currgrad = currgradtilde
@@ -334,14 +337,14 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
                 Hhat = (1.0-1.0/(i+t0))*Hhat + 1.0/(i+t0)*(delta - alfa/nalfa)
                 epsilon = np.exp(myy -np.sqrt(i)/gamma*Hhat)
                 epsilonhat = np.exp(i**(-kappa)*np.log(epsilon)+(1.0-i**(-kappa))*np.log(epsilonhat))
-                print(epsilon)
 
         else:
             epsilon = epsilonhat
             if (cm):
                 cmestimate = 1.0 / ((i-Madapt)) * ((i-Madapt-1) * cmestimate + theta0)
-
-    print ("Final epsilon: " +  str(epsilon))
+    
+    bar.close()
+    print ("Final epsilon: " +  str(np.ravel(epsilon)))
     if(cm == False):
         return theta
     else:
@@ -357,6 +360,7 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
 @cython.wraparound(False) 
 @cython.cdivision(True)
 def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
+    bar = tqdm(total=N,file=sys.stdout)
     if (Nadapt >= N):
         raise Exception('Nadapt <= N.')
     
@@ -442,7 +446,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
         accept = np.random.rand(dim,)
         acceptv = accept
         number = randoms
-        
+        bar.update(1)
         with nogil:
             for j in range(0,dim):
                 old = values[j]
@@ -527,8 +531,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
                     chdevv[j] = sqrt(currentvar) 
                 
         
-    #print(acc/(N*dim))
-    #print(numer/N)
+    bar.close()
     if(cm):
         return np.reshape(cmest,(-1,1))
     else:
@@ -542,6 +545,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
 @cython.wraparound(False) 
 @cython.cdivision(True)
 def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
+    bar = tqdm(total=N,file=sys.stdout)
     if (Nadapt >= N):
         raise Exception('Nadapt <= N.')
     
@@ -621,6 +625,7 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
     cdef double[:] cmestimate = cmest
 
     for i in range(1,N+1):
+        bar.update(1)
         randoms = np.random.randn(dim,)
         accept = np.random.rand(dim,)
         acceptv = accept
@@ -704,7 +709,7 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
                     chmeanv[j] = currentmean
                     currentvar = (i-1.0)/(i)*chdevv[j]*chdevv[j]+ 1.0/(i+1.0)*(currentvalue-previousmean)*(currentvalue-previousmean)
                     chdevv[j] = sqrt(currentvar) 
-         
+    bar.close()     
     if(cm):
         return np.reshape(cmest,(-1,1))
     else:
