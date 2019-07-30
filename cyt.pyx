@@ -451,8 +451,8 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
                 old = values[j]
                
                 currentvalue = old
-                if  (i> 20) and (i <= adapt):
-                    samplingsigma = 1.542724*chdevv[j] + 10**(-6)
+                if  (i> 20):
+                    samplingsigma = 2.38*chdevv[j] + 10**(-9)
                     
                 new = old + samplingsigma*number[j]
 
@@ -630,14 +630,14 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
         accept = np.random.rand(dim,)
         acceptv = accept
         number = randoms
-        
+        #1.542724
         with nogil:
             for j in range(0,dim):
 
                 old = values[j]
                 currentvalue = old
-                if  (i> 20) and (i <= adapt):
-                    samplingsigma = 1.542724*chdevv[j] + 10**(-6)
+                if  (i> 20):
+                    samplingsigma = 2.38*chdevv[j] + 10**(-9)
                 new = old + samplingsigma*number[j]
 
 

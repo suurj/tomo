@@ -361,9 +361,9 @@ class tomography:
         # x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
         x0 = 0.5 * np.ones((self.dim * self.dim, 1))
         print("Running MwG MCMC for Cauchy prior.")
-        cm, chain = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=True, thinning=1)
-        #plt.plot(chain[1547, :])
-        #plt.show()
+        cm, chain = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=False, thinning=1)
+        plt.plot(chain[119, :])
+        plt.show()
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
