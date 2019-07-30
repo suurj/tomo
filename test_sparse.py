@@ -22,19 +22,35 @@ from matrices import radonmatrix
 from collections import namedtuple
 #from cplus import f
 import cairosvg
+import pathlib
+print(str(pathlib.Path.cwd()))
 import h5py
-from tqdm import tqdm
-r = np.random.randn(50,50)
-bar = tqdm(total=1000,leave=True)
-t = time.time()
-for i in range(0,1000):
-    #pass
-    bar.update(1)
-    time.sleep(0.01)
-bar.close()
-time.sleep(0.01)
-print(time.time()-t)
-exit(0)
+a = np.eye(30)
+b = 1
+simulation_result = {
+    "file_name": a,
+    "scaling": a}
+with h5py.File("koe" + ".hdf5", 'w') as f:
+    for key, value in simulation_result.items():
+        f.create_dataset(key, data=value,compression='lzf')
+
+f = h5py.File('koe.hdf5', 'r')
+print( list(f.keys()))
+print(f['scaling'])
+
+
+# from tqdm import tqdm
+# r = np.random.randn(50,50)
+# bar = tqdm(total=1000,leave=True)
+# t = time.time()
+# for i in range(0,1000):
+#     #pass
+#     bar.update(1)
+#     time.sleep(0.01)
+# bar.close()
+# time.sleep(0.01)
+# print(time.time()-t)
+# exit(0)
 from matrices import radonmatrix
 # def gs(p,t):
 #     M_PI =np.pi
@@ -116,18 +132,18 @@ from matrices import radonmatrix
 # #sgram = radon(image,theta/(2*np.pi)*360,circle=False)
 # #radonoperator= radonmatrix(N, theta)
 #sp.save_npz(fname,radonoperator)
-sgram2 = radon(image,theta/(2*np.pi)*360,circle=False)
-plt.imshow(sgramsim,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
-#plt.imshow(sgram,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
-plt.figure()
-plt.imshow(sgram2,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
+# sgram2 = radon(image,theta/(2*np.pi)*360,circle=False)
+# plt.imshow(sgramsim,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
+# #plt.imshow(sgram,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
+# plt.figure()
 # plt.imshow(sgram2,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
-# #plt.imshow(tt,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
-plt.figure()
-plt.imshow(sgram,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
-# plt.imshow(iradon_sart(sgram2,theta/(2*np.pi)*360))
-plt.show()
-exit(0)
+# # plt.imshow(sgram2,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
+# # #plt.imshow(tt,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
+# plt.figure()
+# plt.imshow(sgram,extent=[theta[0], theta[-1], -np.sqrt(2), np.sqrt(2)])
+# # plt.imshow(iradon_sart(sgram2,theta/(2*np.pi)*360))
+# plt.show()
+# exit(0)
 # def matern(N,l1,l2,alpha):
 #     N = int(N)
 #     L1 = np.ones((N,N))

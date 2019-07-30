@@ -184,7 +184,13 @@ def  radonmatrix(size,theta,Nthreads=4):
     else:
         dt = (theta[1]-theta[0])
         
-    
+    # One might comment out the first ray row or alternatively 
+    # comment out the followinf five and comment the first one. Averaging four values
+    # might lead to more realistic sinogram with large dimensions and angles and it would make the operator denser.
+    # However, the averaging might make the sinogram perhaps worse with sparse angles (at least the angle averaging should be reconsidered one should use rhoo
+    # averaging only).
+    # See Peter Thoft's PhD thesis above
+    # (First order pixel oriented interpolation).
     start = time.time() 
     with nogil:                     
         for r in prange (0,R,num_threads=Nth):
@@ -192,11 +198,12 @@ def  radonmatrix(size,theta,Nthreads=4):
                 tt = -(tmin + t*dt)
                 for n in range (0,N):
                     for m in range( 0,M):
-                        ray = dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
-                        ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
-                        ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
-                        ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
-                        ray = ray/4.0
+                        ray = dx/2.0 * gs(2.0*(pmin+r*dp -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
+                        #ray = dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
+                        #ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
+                        #ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
+                        #ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
+                        #ray = ray/4.0
                         if(ray > 0.0):
                             th = thid()
                             row[th].push_back(r*T+t)

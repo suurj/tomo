@@ -11,6 +11,8 @@ import sys
 import scipy.sparse as sp
 import os
 import matplotlib.pyplot as plt
+import h5py
+import pathlib
 from tqdm import tqdm
 from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_grad, tfun_tv as ltv, tv_grad, cauchy_grad, \
     argumentspack
@@ -18,13 +20,13 @@ from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_gra
 
 class tomography:
 
-    def __init__(self, filename, targetsize=128, itheta=40, noise=0.0, crimefree=False, globalprefix=""):
+    def __init__(self, filename, targetsize=128, itheta=50, noise=0.0,  globalprefix="/results/", dimbig = 607, N_thetabig=421, crimefree=False):
         self.globalprefix = globalprefix
         self.dim = targetsize
-        fnamebig = None
+        self.noise = noise
         self.thetabig = None
-        self.dimbig = 128
-        self.N_thetabig = 100
+        self.dimbig = dimbig
+        self.N_thetabig = N_thetabig
         self.N_rbig = math.ceil(np.sqrt(2) * self.dimbig)
         if targetsize > 512:
             raise Exception(
@@ -63,7 +65,7 @@ class tomography:
                 self.thetabig = np.linspace(0, 180, self.N_thetabig, endpoint=False)
                 self.thetabig = self.thetabig / 360 * 2 * np.pi
                 self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
-                fnamebig = 'radonmatrix/full-{0}x{1}.npz'.format(str(self.dimbig), str(self.N_thetabig))
+                #fnamebig = 'radonmatrix/full-{0}x{1}.npz'.format(str(self.dimbig), str(self.N_thetabig))
 
         else:
             self.theta = np.linspace(itheta[0], itheta[1], itheta[2], endpoint=False)
@@ -77,7 +79,7 @@ class tomography:
                 self.thetabig = np.linspace(itheta[0], itheta[1], self.N_thetabig, endpoint=False)
                 self.thetabig = self.thetabig / 360 * 2 * np.pi
                 self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
-                fnamebig = 'radonmatrix/{0}_{1}-{2}x{3}.npz'.format(str(itheta[0]), str(itheta[1]), str(self.dimbig),str(self.N_thetabig))
+                #fnamebig = 'radonmatrix/{0}_{1}-{2}x{3}.npz'.format(str(itheta[0]), str(itheta[1]), str(self.dimbig),str(self.N_thetabig))
 
         if not os.path.isfile(fname):
             from matrices import radonmatrix
@@ -85,23 +87,32 @@ class tomography:
             self.radonoperator = radonmatrix(self.dim, self.theta)
             sp.save_npz(fname, self.radonoperator)
 
-        if crimefree and (not os.path.isfile(fnamebig)):
-            from matrices import radonmatrix
+        # In the case of inverse-crime free tomography,
+        # one might use the Radon tool from scikit-image
+        # or construct another Radon matrix and calculate a sinogram with that. The former is definitely faster and also preferred,
+        # since different methods are used to simulate and reconcstruct the image.
 
-            self.radonoperatorbig = radonmatrix(self.dimbig, self.thetabig)
-            sp.save_npz(fnamebig, self.radonoperatorbig)
+        #if crimefree and (not os.path.isfile(fnamebig)):
+        #    from matrices import radonmatrix
+
+        #    self.radonoperatorbig = radonmatrix(self.dimbig, self.thetabig)
+        #    sp.save_npz(fnamebig, self.radonoperatorbig)
 
         self.radonoperator = sp.load_npz(fname)
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         self.radonoperator = self.radonoperator / self.dim
 
         if (crimefree):
-            self.radonoperatorbig = sp.load_npz(fnamebig) / self.dimbig
-            simulated = self.radonoperatorbig @ self.flattened
+            #self.radonoperatorbig = sp.load_npz(fnamebig) / self.dimbig
+            #simulated = self.radonoperatorbig@self.flattened
+            #simulated = np.reshape(simulated,(self.N_rbig,self.N_thetabig))
+            simulated = self.radonww(image,self.thetabig/ ( 2 * np.pi)*360)/self.dimbig
+            simulated = np.reshape(simulated,(-1,1))
+
             maxvalue = np.max(simulated)
-            simulated = simulated + maxvalue * noise * np.random.randn(self.N_rbig * self.N_thetabig, 1)
+            simulated = simulated + maxvalue * self.noise * np.random.randn(self.N_rbig * self.N_thetabig, 1)
             self.sgramsim = np.reshape(simulated, (self.N_rbig, self.N_thetabig))
-            interp = interpolate.RectBivariateSpline(-self.rhoobig, self.thetabig, self.sgramsim)
+            interp = interpolate.RectBivariateSpline(-self.rhoobig, self.thetabig, self.sgramsim,kx=1,ky=1)
             self.sgram = interp(-self.rhoo, self.theta)
             self.lines = np.reshape(self.sgram, (-1, 1))
 
@@ -109,12 +120,14 @@ class tomography:
             simulated = self.radonoperator @ self.flattened
             maxvalue = np.max(simulated)
             noiserealization = np.random.randn(self.N_r * self.N_theta, 1)
-            self.lines = simulated + maxvalue * noise * noiserealization
+            self.lines = simulated + maxvalue * self.noise * noiserealization
             self.sgram = np.reshape(self.lines, (self.N_r, self.N_theta))
 
-        if noise == 0:
-            noise = 0.01
-        self.lhsigmsq = (maxvalue * noise) ** 2
+        if self.noise == 0:
+            likelihoodvariance = 0.01
+        else:
+            likelihoodvariance = self.noise
+        self.lhsigmsq = (maxvalue * likelihoodvariance) ** 2
         self.Q = argumentspack(M=self.radonoperator, y=self.lines, b=0.01, s2=self.lhsigmsq)
         self.pbar = None
 
@@ -290,7 +303,7 @@ class tomography:
         # x0 = np.reshape(self.map_tikhonov(alpha),(-1,1))
         # x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
         x0 = 0.2 * np.ones((self.dim * self.dim, 1))
-        cm = hmc(M, x0, self.Q, Madapt, de=0.651, gamma=0.05, t0=10.0, kappa=0.75, cm=True)
+        cm,_ = hmc(M, x0, self.Q, Madapt, de=0.651, gamma=0.05, t0=10.0, kappa=0.75, cmonly=True,thinning=1)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -318,7 +331,9 @@ class tomography:
         # x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
         x0 = 0.2 * np.ones((self.dim * self.dim, 1))
         print("Running MwG MCMC for TV prior.")
-        cm = mwg_tv(M, Madapt, self.Q, x0, sampsigma=1.0, cmesti=True,thinning=10)
+        cm,chain = mwg_tv(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=False,thinning=1)
+        plt.plot(chain[500,:])
+        plt.show()
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -342,13 +357,13 @@ class tomography:
         self.Q.s2 = self.lhsigmsq
         self.Q.b = 0.01
         self.Q.y = self.lines
-        # print(self.radonoperator.shape)
-        # print(regx.shape)
         # x0 = np.reshape(self.map_tikhonov(alpha),(-1,1))
         # x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
         x0 = 0.5 * np.ones((self.dim * self.dim, 1))
         print("Running MwG MCMC for Cauchy prior.")
-        cm = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmesti=True,thinning=10)
+        cm, chain = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=True, thinning=1)
+        #plt.plot(chain[1547, :])
+        #plt.show()
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -375,7 +390,7 @@ class tomography:
         self.Q.gradi = tv_grad
         x0 = 0.2 * np.ones((self.dim * self.dim, 1))
         print("Running HMC for TV prior.")
-        cm = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, kappa=0.75, cm=True)
+        cm,chain = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, kappa=0.75, cmonly=True,thinning=1)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -402,7 +417,7 @@ class tomography:
         self.Q.gradi = cauchy_grad
         x0 = 0.5 * np.ones((self.dim * self.dim, 1))
         print("Running HMC for Cauchy prior.")
-        cm = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cm=True, thin=1)
+        cm,chain = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=False, thinning=1)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -428,7 +443,7 @@ class tomography:
         self.Q.gradi = tv_grad
         x0 = 0.5 * np.ones((self.dim * self.dim, 1))
         print("Running HMC for Besov prior.")
-        cm = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cm=True)
+        cm,_ = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=True,thinning=1)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -440,25 +455,34 @@ class tomography:
         plt.imshow(self.sgram, extent=[self.theta[0], self.theta[-1], -np.sqrt(2), np.sqrt(2)])
         plt.show()
 
-    def radonww(self, circle=False):
+    def radonww(self,image, theta_in_angles,circle=False):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            return radon(self.targetimage, self.theta / (2 * np.pi) * 360, circle)
+            return radon(image, theta_in_angles, circle)
 
-    def saveresult(self, img, prefix=""):
-        name = time.strftime(self.globalprefix + prefix + "%d-%m-%Y_%H%M%S.npy")
-        np.save(name, img)
+    def difference(self,img):
+        t = np.ravel(np.reshape(self.targetimage,(1,-1)))
+        r = np.ravel(np.reshape(img,(1,-1)))
+        L1 = np.linalg.norm(t-r,ord=1)/np.linalg.norm(t,ord=1)
+        L2 = np.linalg.norm(t-r,ord=2)/np.linalg.norm(t,ord=2)
+        return L1,L2
+
+    def saveresult(self, result, prefix=""):
+        filename = str(pathlib.Path.cwd()) + self.globalprefix + prefix + time.strftime("%d-%b-%Y_%H_%M_%S")
+        with h5py.File(filename, 'w') as f:
+            for key, value in result.items():
+                f.create_dataset(key, data=value, compression='lzf')
 
 
 if __name__ == "__main__":
     np.random.seed(3)
     #theta = (0, 90, 50)
-    theta = 50
-    t = tomography("shepp.png", 128, theta, 0.05, crimefree=False)
+    theta = 100
+    t = tomography("shepp.png", 64, theta, 0.05, crimefree=False)
     real = t.target()
     # t.saveresult(real)
     # sg = t.sinogram()
-    # t.sinogram()
+    #t.sinogram()
 
     # t.normalizedsgram = t.radonww()
     #t.sinogram()
@@ -473,29 +497,28 @@ if __name__ == "__main__":
     # #print(np.linalg.norm(real - r))
     # # tt = time.time()
     # #
-    # r = t.map_tv(1,True)
+    r = t.mwg_cauchy(0.01,7000,5000)
+    print(t.difference(r))
     # r = t.map_cauchy(0.01,True)
     # r = t.map_tikhonov(10 / (t.dim*t.dim))
     # r = t.map_tikhonov(10,True,order=1)
     # #
     # # # # print(time.time()-tt)
     # # # #
-    tt = time.time()
     # r = t.hmcmc_cauchy(0.01,100,20)
     # r = t.mwg_cauchy(0.01, 1000, 100)
     # print(time.time()-tt)
     # r = t.hmcmc_tv(10, 200, 20)
     # r = t.hmcmc_cauchy(100/(t.dim**2), 250, 30)
-    # plt.imshow(r)
+    plt.imshow(r)
     # # # #plt.plot(r[3000,:],r[2000,:],'*r')
-    # plt.clim(0, 1)
-    # plt.figure()
+    plt.clim(0, 1)
+    #plt.figure()
     #r2 = t.hmcmc_cauchy(0.001, 200, 20)
     #r2 = t.map_tv(5)
     #r2 = t.map_cauchy(0.001)
     #r2 = t.map_cauchy(0.01)
-    r2 = t.hmcmc_cauchy( 0.01,200,20)
-    print(time.time()-tt)
+    #r2 = t.mwg_tv( 5,2000,200)
     #r2 = t.map_tv(5)
     # # #print(np.linalg.norm(real - r))
     # # #q = iradon_sart(q, theta=theta)
@@ -503,11 +526,10 @@ if __name__ == "__main__":
     # # #tt = time.time()
     # r2 = t.map_tikhonov(1)
     # r2 = t.map_wavelet(0.5,'db2')
-    #print(np.linalg.norm(np.reshape(real - r, (-1, )),ord=2))
-    print(np.linalg.norm(np.reshape(real - r2, (-1, )), ord=2))
+    #print(t.difference(r2))
     # # # #print(time.time()-tt)
-    plt.imshow(r2)
-    plt.clim(0, 1)
+    #plt.imshow(r2)
+    #plt.clim(0, 1)
     plt.show()
 
 #

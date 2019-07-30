@@ -270,12 +270,12 @@ def buildtree(theta,r,logu,v,j,epsilon,theta0,r0,Q,initialdr,currgrad):
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True)
-def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=None,cm=False,thin=1):
+def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=None,cmonly=False,thinning=1):
     bar = tqdm(total=M,file=sys.stdout)
     theta0 = np.reshape(theta0,(-1,1))
     dim = theta0.shape[0]
-    if (cm == False):
-        theta = np.zeros((dim, M//thin + 1))
+    if (cmonly == False):
+        theta = np.zeros((dim, M//thinning + 1))
         theta[:, 0] = np.ravel(theta0)
     delta = de
     currdensity = Q.logdensity(theta0, Q)
@@ -308,8 +308,8 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
         j = 0
         n = 1.0
         s = 1.0
-        if(cm == False and (i%thin == 0)):
-            theta[:, i//thin] = np.ravel(theta0)
+        if(cmonly == False and (i%thinning == 0)):
+            theta[:, i//thinning] = np.ravel(theta0)
   
         while (s==1):
             vj = np.random.choice(np.array([-1,1]))
@@ -321,8 +321,8 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
 
             if (stilde ==1):
                 if(np.random.rand() < ntilde/n):
-                    if(cm == False and (i%thin == 0)):
-                        theta[:, i//thin] = np.ravel(thetatilde)
+                    if(cmonly == False and (i%thinning == 0)):
+                        theta[:, i//thinning] = np.ravel(thetatilde)
                     theta0 = thetatilde
                     currdensity= currdensitytilde
                     currgrad = currgradtilde
@@ -340,15 +340,14 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
 
         else:
             epsilon = epsilonhat
-            if (cm):
-                cmestimate = 1.0 / ((i-Madapt)) * ((i-Madapt-1) * cmestimate + theta0)
+            cmestimate = 1.0 / ((i-Madapt)) * ((i-Madapt-1) * cmestimate + theta0)
     
     bar.close()
     print ("Final epsilon: " +  str(np.ravel(epsilon)))
-    if(cm == False):
-        return theta
+    if(cmonly == False):
+        return cmestimate,theta
     else:
-        return cmestimate
+        return cmestimate,None
      
 
 
@@ -359,7 +358,7 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
 @cython.boundscheck(False)
 @cython.wraparound(False) 
 @cython.cdivision(True)
-def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
+def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
     bar = tqdm(total=N,file=sys.stdout)
     if (Nadapt >= N):
         raise Exception('Nadapt <= N.')
@@ -373,7 +372,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
     regalpha = Q.a
     lhvariance = Q.s2
     samplebeta = Q.b
-    cdef bint cm = cmesti
+    cdef bint cm = cmonly
     
     np.random.seed(1)
     dimnumpy = x0.shape[0]
@@ -452,8 +451,9 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
                 old = values[j]
                
                 currentvalue = old
-                if (i > adapt):
-                    samplingsigma = 2.4*chdevv[j] + 10**(-12)
+                if  (i> 20) and (i <= adapt):
+                    samplingsigma = 1.542724*chdevv[j] + 10**(-6)
+                    
                 new = old + samplingsigma*number[j]
 
 
@@ -518,11 +518,11 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
                 if ((cm==0) and (i%thin == 0)):
                     chainv[j,i//thin] = values[j]
                     
-                else:
-                    if(i > adapt):
-                        #cmestimate[j]  = 1.0 / ((i+1)) * ((i) * cmestimate[j] + values[j])
-                        cmestimate[j]  = 1.0 / ((i-adapt)) * ((i-adapt-1) * cmestimate[j] + values[j])
-                
+                #else:
+                if(i > adapt):
+                    #cmestimate[j]  = 1.0 / ((i+1)) * ((i) * cmestimate[j] + values[j])
+                    cmestimate[j]  = 1.0 / ((i-adapt)) * ((i-adapt-1) * cmestimate[j] + values[j])
+
                 if (i <= adapt):
                     previousmean = chmeanv[j]
                     currentmean = 1.0/(i+1.0)*(i*previousmean+currentvalue)
@@ -533,9 +533,9 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
         
     bar.close()
     if(cm):
-        return np.reshape(cmest,(-1,1))
+        return np.reshape(cmest,(-1,1)),None
     else:
-        return  chain
+        return  np.reshape(cmest,(-1,1)),chain
 
 # Metropolis within-Gibbs function for Cauchy prior and Gaussian likelihood.
 # N is the number of samples, Nadapt is the number of SCAM steps, Q is the extra argument instance, 
@@ -544,7 +544,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
 @cython.boundscheck(False)
 @cython.wraparound(False) 
 @cython.cdivision(True)
-def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
+def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
     bar = tqdm(total=N,file=sys.stdout)
     if (Nadapt >= N):
         raise Exception('Nadapt <= N.')
@@ -559,7 +559,7 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
     lhvariance = Q.s2
     samplebeta = Q.b
     
-    cdef int cm = cmesti
+    cdef int cm = cmonly
     dimnumpy = x0.shape[0]
     cdef int dim = dimnumpy
     x = x0
@@ -636,8 +636,8 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
 
                 old = values[j]
                 currentvalue = old
-                if (i > adapt):
-                    samplingsigma = 2.4*chdevv[j] + 10**(-12)
+                if  (i> 20) and (i <= adapt):
+                    samplingsigma = 1.542724*chdevv[j] + 10**(-6)
                 new = old + samplingsigma*number[j]
 
 
@@ -698,10 +698,10 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
                     
                 if ((cm==0) and (i%thin == 0)):
                     chainv[j,i//thin] = values[j]
-                else:
-                    if(i > adapt):
-                        #cmestimate[j]  = 1.0 / ((i+1)) * ((i) * cmestimate[j] + values[j])
-                        cmestimate[j]  = 1.0 / ((i-adapt)) * ((i-adapt-1) * cmestimate[j] + values[j])
+                #else:
+                if(i > adapt):
+                    #cmestimate[j]  = 1.0 / ((i+1)) * ((i) * cmestimate[j] + values[j])
+                    cmestimate[j]  = 1.0 / ((i-adapt)) * ((i-adapt-1) * cmestimate[j] + values[j])
                 
                 if (i <= adapt):
                     previousmean = chmeanv[j]
@@ -711,6 +711,6 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmesti=False,thinning=10):
                     chdevv[j] = sqrt(currentvar) 
     bar.close()     
     if(cm):
-        return np.reshape(cmest,(-1,1))
+        return np.reshape(cmest,(-1,1)),None
     else:
-        return  chain
+        return  np.reshape(cmest,(-1,1)),chain
