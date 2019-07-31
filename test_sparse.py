@@ -6,7 +6,7 @@ import scipy.sparse as sp
 from sys import getsizeof
 from skimage.transform import radon, rescale,resize
 from scipy.sparse import csr_matrix,csc_matrix,lil_matrix, coo_matrix, dok_matrix
-from cyt import mwg_cauchy,mwg_tv, argumentspack
+#from cyt import mwg_cauchy,mwg_tv, argumentspack
 import copy
 import math
 import time
@@ -23,20 +23,60 @@ from collections import namedtuple
 #from cplus import f
 import cairosvg
 import pathlib
-print(str(pathlib.Path.cwd()))
-import h5py
-a = np.eye(30)
-b = 1
-simulation_result = {
-    "file_name": a,
-    "scaling": a}
-with h5py.File("koe" + ".hdf5", 'w') as f:
-    for key, value in simulation_result.items():
-        f.create_dataset(key, data=value,compression='lzf')
+class container:
+    def __init__(self,target=np.zeros((20,20)),l1=-1.0,l2=-1.0,result=np.zeros((2,2)),noise=-1.0,imagefilename='None',targetsize=0,theta=0,method='None',prior='None',sampnum=0,adaptnum=0,alpha=0,globalprefix=""):
+        self.spent = time.time()
+        self.l1 = l1
+        self.l2 = l2
+        self.target = target
+        self.noise = noise
+        self.result = result
+        self.imagefilename = imagefilename
+        self.targetsize = targetsize
+        self.theta = theta
+        self.method = method
+        self.prior = prior
+        self.sampnum = sampnum
+        self.adaptnum = adaptnum
+        self.alpha = alpha
+        self.globalprefix = globalprefix
+        self.prefix = ''
 
-f = h5py.File('koe.hdf5', 'r')
-print( list(f.keys()))
-print(f['scaling'])
+    def finish(self,result=None,l1=None,l2=None):
+        self.l1 = l1
+        self.l2 = l2
+        self.result = result
+        self.spent = time.time()-self.spent
+        self.prefix =  time.strftime("%Y-%b-%d_%H_%M_%S")
+
+r = container(adaptnum=1)
+r = None
+r.finish(result=np.zeros((50,50)))
+# for attr, value in r.__dict__.items():
+#         print (attr, value)
+#
+#
+# def saveresult(result):
+#     import h5py
+#     with h5py.File( "koe2" + ".hdf5", 'w') as f:
+#         for key, value in r.__dict__.items():
+#             if (value is None):
+#                 value = "None"
+#             if (isinstance(value, np.ndarray)):
+#                 compression = 'lzf'
+#                 print('gg')
+#             else:
+#                 compression = None
+#             f.create_dataset(key, data=value,compression=compression)
+#     f.close()
+
+# f = h5py.File('koe2.hdf5', 'r')
+# keys = list(f.keys())
+# print( keys)
+# for i in range(keys.__len__()):
+#     h = np.array(f[keys[i]])
+#     print(h)
+# f.close()
 
 
 # from tqdm import tqdm

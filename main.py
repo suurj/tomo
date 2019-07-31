@@ -17,11 +17,41 @@ from tqdm import tqdm
 from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_grad, tfun_tv as ltv, tv_grad, cauchy_grad, \
     argumentspack
 
+class container:
+    def __init__(self,target=np.zeros((2,2)),l1=-1.0,l2=-1.0,result=np.zeros((2,2)),noise=-1.0,imagefilename='None',targetsize=0,theta=np.zeros((1,)),method='None',prior='None',totaliternum=0,levels=0,adaptnum=0,alpha=0.0,globalprefix=""):
+        self.spent = time.time()
+        self.l1 = l1
+        self.l2 = l2
+        self.target = target
+        self.noise = noise
+        self.result = result
+        self.imagefilename = imagefilename
+        self.targetsize = targetsize
+        self.theta = theta
+        self.method = method
+        self.prior = prior
+        self.totaliternum = totaliternum
+        self.adaptnum = adaptnum
+        self.alpha = alpha
+        self.levels = levels
+        self.globalprefix = globalprefix
+        self.prefix = ''
+
+    def finish(self,result=None,error=(-1.0,-1.0),iters=0):
+        self.l1 = error[0]
+        self.l2 = error[1]
+        self.totaliternum = iters
+        self.result = result
+        self.spent = time.time()-self.spent
+        self.prefix =  time.strftime("%Y-%b-%d_%H_%M_%S") + '+' + self.prior + '+' + self.method
 
 class tomography:
 
-    def __init__(self, filename, targetsize=128, itheta=50, noise=0.0,  globalprefix="/results/", dimbig = 607, N_thetabig=421, crimefree=False):
-        self.globalprefix = globalprefix
+    def __init__(self, filename, targetsize=128, itheta=50, noise=0.0,  commonprefix="/results/", dimbig = 607, N_thetabig=421, crimefree=False,lhdev=None):
+        self.globalprefix = str(pathlib.Path.cwd()) + commonprefix
+        if not os.path.exists(self.globalprefix):
+            os.makedirs(self.globalprefix)
+        self.filename = filename
         self.dim = targetsize
         self.noise = noise
         self.thetabig = None
@@ -65,7 +95,6 @@ class tomography:
                 self.thetabig = np.linspace(0, 180, self.N_thetabig, endpoint=False)
                 self.thetabig = self.thetabig / 360 * 2 * np.pi
                 self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
-                #fnamebig = 'radonmatrix/full-{0}x{1}.npz'.format(str(self.dimbig), str(self.N_thetabig))
 
         else:
             self.theta = np.linspace(itheta[0], itheta[1], itheta[2], endpoint=False)
@@ -79,7 +108,7 @@ class tomography:
                 self.thetabig = np.linspace(itheta[0], itheta[1], self.N_thetabig, endpoint=False)
                 self.thetabig = self.thetabig / 360 * 2 * np.pi
                 self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
-                #fnamebig = 'radonmatrix/{0}_{1}-{2}x{3}.npz'.format(str(itheta[0]), str(itheta[1]), str(self.dimbig),str(self.N_thetabig))
+
 
         if not os.path.isfile(fname):
             from matrices import radonmatrix
@@ -123,18 +152,24 @@ class tomography:
             self.lines = simulated + maxvalue * self.noise * noiserealization
             self.sgram = np.reshape(self.lines, (self.N_r, self.N_theta))
 
-        if self.noise == 0:
-            likelihoodvariance = 0.01
-        else:
-            likelihoodvariance = self.noise
-        self.lhsigmsq = (maxvalue * likelihoodvariance) ** 2
+        if lhdev is None:
+            if self.noise == 0:
+                lhdev = 0.01
+            else:
+                lhdev = self.noise
+        self.lhsigmsq = (maxvalue * lhdev) ** 2
         self.Q = argumentspack(M=self.radonoperator, y=self.lines, b=0.01, s2=self.lhsigmsq)
         self.pbar = None
+        self.method = 'L-BFGS-B'
 
     def mincb(self,_):
         self.pbar.update(1)
 
-    def map_tikhonov(self, alpha=1.0, order=1,maxiter=400):
+    def map_tikhonov(self, alpha=1.0, order=1,maxiter=400,retim=True):
+        res = None
+        if not retim:
+            res = container(alpha=alpha, prior='tikhonov', levels=order, method='map', noise=self.noise, imagefilename=self.filename,
+                            target=self.targetimage, targetsize=self.dim, theta=self.theta)
         if (order == 2):
             regvalues = np.array([2, -1, -1, -1, -1])
             offsets = np.array([0, 1, -1, self.dim - 1, -self.dim + 1])
@@ -158,13 +193,18 @@ class tomography:
         print("Running MAP estimate for Tikhonov prior.")
         self.pbar = tqdm(total=np.Inf,file=sys.stdout)
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
-        solution = minimize(self.tfun_tikhonov, x0, method='L-BFGS-B', jac=self.grad_tikhonov,
+        solution = minimize(self.tfun_tikhonov, x0, method=self.method, jac=self.grad_tikhonov,
                             options={'maxiter': maxiter, 'disp': False},callback=self.mincb)
         self.pbar.close()
+        iters = solution.nit
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
-        return solution
+        if not retim:
+            res.finish(solution, self.difference(solution), iters=iters)
+            return res
+        else:
+            return solution
 
     def tfun_tikhonov(self, x):
         return -ltikhonov(x, self.Q)
@@ -174,7 +214,11 @@ class tomography:
         ans = -tikhonov_grad(x, self.Q)
         return np.ravel(ans)
 
-    def map_tv(self, alpha=1.0, maxiter=400):
+    def map_tv(self, alpha=1.0, maxiter=400,retim=True):
+        res = None
+        if not retim:
+            res = container(alpha=alpha, prior='tv', method='map', noise=self.noise, imagefilename=self.filename,
+                            target=self.targetimage, targetsize=self.dim, theta=self.theta)
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
         reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
@@ -194,14 +238,18 @@ class tomography:
         print("Running MAP estimate for TV prior.")
         self.pbar = tqdm(total=np.Inf,file=sys.stdout)
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
-        solution = minimize(self.tfun_tv, x0, method='L-BFGS-B', jac=self.grad_tv,
+        solution = minimize(self.tfun_tv, x0, method=self.method, jac=self.grad_tv,
                             options={'maxiter': maxiter, 'disp': False},callback=self.mincb)
         self.pbar.close()
+        iters = solution.nit
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
-
-        return solution
+        if not retim:
+            res.finish(solution, self.difference(solution), iters=iters)
+            return res
+        else:
+            return solution
 
     def tfun_tv(self, x):
         return -ltv(x, self.Q)
@@ -211,7 +259,10 @@ class tomography:
         q = -tv_grad(x, self.Q)
         return np.ravel(q)
 
-    def map_cauchy(self, alpha=1.0, maxiter=400):
+    def map_cauchy(self, alpha=1.0, maxiter=400,retim=True):
+        res = None
+        if not retim:
+            res = container(alpha=alpha,prior='cauchy',method='map',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta)
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
         reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
@@ -229,17 +280,20 @@ class tomography:
         self.Q.s2 = self.lhsigmsq
         self.Q.b = 0.01
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
-        # L-BFGS-B
         print("Running MAP estimate for Cauchy prior.")
         self.pbar = tqdm(total=np.Inf,file=sys.stdout)
-        solution = minimize(self.tfun_cauchy, x0, method='L-BFGS-B', jac=self.grad_cauchy,
+        solution = minimize(self.tfun_cauchy, x0, method=self.method, jac=self.grad_cauchy,
                             options={'maxiter': maxiter, 'disp': False},callback=self.mincb)
         self.pbar.close()
+        iters = solution.nit
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
-
-        return solution
+        if not retim:
+            res.finish(solution,self.difference(solution),iters=iters)
+            return res
+        else:
+            return solution
 
     def tfun_cauchy(self, x):
         return -lcauchy(x, self.Q)
@@ -249,12 +303,15 @@ class tomography:
         ans = -cauchy_grad(x, self.Q)
         return (np.ravel(ans))
 
-    def map_wavelet(self, alpha=1.0, type='haar', maxiter=400):
+    def map_wavelet(self, alpha=1.0, type='haar', maxiter=400,levels=3 ,retim=True):
+        res = None
+        if not retim:
+            res = container(alpha=alpha,prior=type,method='map',levels=levels,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta)
         from matrices import totalmatrix
         wl = pywt.Wavelet(type)
         g = np.array(wl.dec_lo)
         h = np.array(wl.dec_hi)
-        regx = totalmatrix(self.dim, 6, g, h)
+        regx = totalmatrix(self.dim, levels, g, h)
         regy = sp.csc_matrix((1, self.dim * self.dim))
         regx = sp.csc_matrix(regx)
         regy = sp.csc_matrix(regy)
@@ -268,15 +325,20 @@ class tomography:
         print("Running MAP estimate for Besov prior.")
         self.pbar = tqdm(total=np.Inf,file=sys.stdout)
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
-        solution = minimize(self.tfun_tv, x0, method='L-BFGS-B', jac=self.grad_tv,
+        solution = minimize(self.tfun_tv, x0, method=self.method, jac=self.grad_tv,
                             options={'maxiter': maxiter, 'disp': False},callback=self.mincb)
         self.pbar.close()
+        iters = solution.nit
         solution = solution.x
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
-        return solution
+        if not retim:
+            res.finish(solution, self.difference(solution), iters=iters)
+            return res
+        else:
+            return solution
 
-    def hmcmc_tikhonov(self, alpha, M=100, Madapt=20, order=1):
+    def hmcmc_tikhonov(self, alpha, M=100, Madapt=20, order=1,mapstart=False):
         from cyt import hmc
         if (order == 2):
             regvalues = np.array([2, -1, -1, -1, -1])
@@ -300,16 +362,18 @@ class tomography:
         self.Q.logdensity = ltikhonov
         self.Q.gradi = tikhonov_grad
         self.Q.y = self.lines
-        # x0 = np.reshape(self.map_tikhonov(alpha),(-1,1))
-        # x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
-        x0 = 0.2 * np.ones((self.dim * self.dim, 1))
-        cm,_ = hmc(M, x0, self.Q, Madapt, de=0.651, gamma=0.05, t0=10.0, kappa=0.75, cmonly=True,thinning=1)
+        if (mapstart):
+            x0 = np.reshape(self.map_tikhonov(alpha,maxiter=150),(-1,1))
+            x0 = x0 + 0.01*np.random.rand(self.dim*self.dim,1)
+        else:
+            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+        cm,chain = hmc(M, x0, self.Q, Madapt, de=0.651, gamma=0.05, t0=10.0, kappa=0.75, cmonly=True,thinning=1)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
 
-    def mwg_tv(self, alpha, M=10000, Madapt=1000):
-        from cyt import mwg_tv
+    def mwg_tv(self, alpha, M=10000, Madapt=1000,mapstart=False):
+        from cyt import mwg_tv as mwgt
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
         reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
@@ -325,20 +389,21 @@ class tomography:
         self.Q.Ly = empty
         self.Q.a = alpha
         self.Q.s2 = self.lhsigmsq
-        self.Q.b = 0.01
+        self.Q.b = 0.00
         self.Q.y = self.lines
-        # x0 = np.reshape(self.map_tikhonov(alpha),(-1,1))
-        # x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
-        x0 = 0.2 * np.ones((self.dim * self.dim, 1))
+        if (mapstart):
+            x0 = np.reshape(self.map_tv(alpha, maxiter=150), (-1, 1))
+            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
+        else:
+            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running MwG MCMC for TV prior.")
-        cm,chain = mwg_tv(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=False,thinning=1)
-        plt.plot(chain[500,:])
-        plt.show()
+        cm,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=False,thinning=1)
+
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
 
-    def mwg_cauchy(self, alpha, M=10000, Madapt=1000):
+    def mwg_cauchy(self, alpha, M=10000, Madapt=1000,mapstart=False):
         from cyt import mwg_cauchy as mwgc
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
@@ -357,18 +422,46 @@ class tomography:
         self.Q.s2 = self.lhsigmsq
         self.Q.b = 0.01
         self.Q.y = self.lines
-        # x0 = np.reshape(self.map_tikhonov(alpha),(-1,1))
-        # x0 = x0 + 1*np.random.rand(self.dim*self.dim,1)
-        x0 = 0.5 * np.ones((self.dim * self.dim, 1))
+        if mapstart:
+            x0 = np.reshape(self.map_cauchy(alpha, maxiter=150), (-1, 1))
+            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
+        else:
+            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running MwG MCMC for Cauchy prior.")
         cm, chain = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=False, thinning=1)
-        plt.plot(chain[119, :])
-        plt.show()
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
 
-    def hmcmc_tv(self, alpha, M=100, Madapt=20):
+    def mwg_wavelet(self, alpha, M=10000, Madapt=1000,type='haar',levels=3,mapstart=False):
+        from matrices import totalmatrix
+        from cyt import mwg_tv as mwgt
+        wl = pywt.Wavelet(type)
+        g = np.array(wl.dec_lo)
+        h = np.array(wl.dec_hi)
+        regx = totalmatrix(self.dim, levels, g, h)
+        regy = sp.csc_matrix((1, self.dim * self.dim))
+        regx = sp.csc_matrix(regx)
+        regy = sp.csc_matrix(regy)
+        self.radonoperator = sp.csc_matrix(self.radonoperator)
+        alpha = alpha
+        self.Q.Lx = regx
+        self.Q.b = 0.0000
+        self.Q.Ly = regy
+        self.Q.a = alpha
+        self.Q.s2 = self.lhsigmsq
+        if (mapstart):
+            x0 = np.reshape(self.map_wavelet(alpha, type=type,levels=levels, maxiter=150), (-1, 1))
+            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
+        else:
+            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+        print("Running MwG MCMC for Besov prior.")
+        cm,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=False,thinning=1)
+        cm = np.reshape(cm, (-1, 1))
+        cm = np.reshape(cm, (self.dim, self.dim))
+        return cm
+
+    def hmcmc_tv(self, alpha, M=100, Madapt=20,mapstart=False):
         from cyt import hmc
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
@@ -388,14 +481,18 @@ class tomography:
         self.Q.b = 0.01
         self.Q.logdensity = ltv
         self.Q.gradi = tv_grad
-        x0 = 0.2 * np.ones((self.dim * self.dim, 1))
+        if mapstart:
+            x0 = np.reshape(self.map_tv(alpha, maxiter=150), (-1, 1))
+            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
+        else:
+            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running HMC for TV prior.")
         cm,chain = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, kappa=0.75, cmonly=True,thinning=1)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
 
-    def hmcmc_cauchy(self, alpha, M=100, Madapt=20):
+    def hmcmc_cauchy(self, alpha, M=100, Madapt=20,mapstart=False):
         from cyt import hmc
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
@@ -415,20 +512,24 @@ class tomography:
         self.Q.b = 0.01
         self.Q.logdensity = lcauchy
         self.Q.gradi = cauchy_grad
-        x0 = 0.5 * np.ones((self.dim * self.dim, 1))
+        if mapstart:
+            x0 = np.reshape(self.map_cauchy(alpha, maxiter=150), (-1, 1))
+            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
+        else:
+            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running HMC for Cauchy prior.")
         cm,chain = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=False, thinning=1)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
 
-    def hmcmc_wavelet(self, alpha, M=100, Madapt=20, type='haar'):
+    def hmcmc_wavelet(self, alpha, M=100, Madapt=20, type='haar',levels=3,mapstart=False):
         from matrices import totalmatrix
         from cyt import hmc
         wl = pywt.Wavelet(type)
         g = np.array(wl.dec_lo)
         h = np.array(wl.dec_hi)
-        regx = totalmatrix(self.dim, 6, g, h)
+        regx = totalmatrix(self.dim, levels, g, h)
         regy = sp.csc_matrix((1, self.dim * self.dim))
         regx = sp.csc_matrix(regx)
         regy = sp.csc_matrix(regy)
@@ -441,9 +542,13 @@ class tomography:
         self.Q.s2 = self.lhsigmsq
         self.Q.logdensity = ltv
         self.Q.gradi = tv_grad
-        x0 = 0.5 * np.ones((self.dim * self.dim, 1))
+        if mapstart:
+            x0 = np.reshape(self.map_wavelet(alpha, type=type, levels=levels, maxiter=150), (-1, 1))
+            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
+        else:
+            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running HMC for Besov prior.")
-        cm,_ = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=True,thinning=1)
+        cm,chain = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=True,thinning=1)
         cm = np.reshape(cm, (-1, 1))
         cm = np.reshape(cm, (self.dim, self.dim))
         return cm
@@ -467,18 +572,29 @@ class tomography:
         L2 = np.linalg.norm(t-r,ord=2)/np.linalg.norm(t,ord=2)
         return L1,L2
 
-    def saveresult(self, result, prefix=""):
-        filename = str(pathlib.Path.cwd()) + self.globalprefix + prefix + time.strftime("%d-%b-%Y_%H_%M_%S")
+    def saveresult(self,result):
+        import h5py
+        filename = self.globalprefix + result.prefix + ".hdf5"
+        path = os.path.dirname(os.path.abspath(filename))
+        if not os.path.exists(path):
+            os.makedirs(path)
         with h5py.File(filename, 'w') as f:
-            for key, value in result.items():
-                f.create_dataset(key, data=value, compression='lzf')
+            for key, value in result.__dict__.items():
+                if (value is None):
+                    value = "None"
+                if (isinstance(value, np.ndarray)):
+                    compression = 'lzf'
+                else:
+                    compression = None
+                f.create_dataset(key, data=value, compression=compression)
+        f.close()
 
 
 if __name__ == "__main__":
     np.random.seed(3)
-    #theta = (0, 90, 50)
-    theta = 100
-    t = tomography("shepp.png", 64, theta, 0.05, crimefree=False)
+    theta = (0, 90, 50)
+    #theta = 50
+    t = tomography("shepp.png", 64, theta, 0.1, crimefree=False)
     real = t.target()
     # t.saveresult(real)
     # sg = t.sinogram()
@@ -497,10 +613,11 @@ if __name__ == "__main__":
     # #print(np.linalg.norm(real - r))
     # # tt = time.time()
     # #
-    r = t.mwg_cauchy(0.01,7000,5000)
+    #r = t.map_wavelet(10)
+    r = t.map_cauchy(0.01,maxiter=500)
     print(t.difference(r))
     # r = t.map_cauchy(0.01,True)
-    # r = t.map_tikhonov(10 / (t.dim*t.dim))
+
     # r = t.map_tikhonov(10,True,order=1)
     # #
     # # # # print(time.time()-tt)
@@ -513,11 +630,11 @@ if __name__ == "__main__":
     plt.imshow(r)
     # # # #plt.plot(r[3000,:],r[2000,:],'*r')
     plt.clim(0, 1)
-    #plt.figure()
+    plt.figure()
     #r2 = t.hmcmc_cauchy(0.001, 200, 20)
-    #r2 = t.map_tv(5)
+    r2 = t.map_tv(5)
     #r2 = t.map_cauchy(0.001)
-    #r2 = t.map_cauchy(0.01)
+    #r2 = t.mwg_wavelet(10,5000,2000,levels=6,mapstart=True)
     #r2 = t.mwg_tv( 5,2000,200)
     #r2 = t.map_tv(5)
     # # #print(np.linalg.norm(real - r))
@@ -526,10 +643,10 @@ if __name__ == "__main__":
     # # #tt = time.time()
     # r2 = t.map_tikhonov(1)
     # r2 = t.map_wavelet(0.5,'db2')
-    #print(t.difference(r2))
+    print(t.difference(r2))
     # # # #print(time.time()-tt)
-    #plt.imshow(r2)
-    #plt.clim(0, 1)
+    plt.imshow(r2)
+    plt.clim(0, 1)
     plt.show()
 
 #

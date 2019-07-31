@@ -219,7 +219,6 @@ def initialeps(theta,Q,currdensity,currgrad):
     while  a * (totalenergy(r2,currdensity2) - totalenergy(r,currdensity)) > -a * np.log(2):
         eps = 2.0**(a)*eps
         (theta2,r2,currdensity2,currgrad2) = leapfrog(theta,r,eps,Q,currgrad)
-    print(eps)
     return eps
 
 
