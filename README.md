@@ -8,7 +8,9 @@
 - Scipy, Scipy sparse
 - PyWT
 - Tqdm
-- Skimage (scikit-image)
+- Skimage (scikit-image and radon)
 - Matplotlib
+- H5py
+- Argparse
 
 ## Usage
