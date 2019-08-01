@@ -678,10 +678,11 @@ if __name__ == "__main__":
     parser.add_argument('--adapt-num', default=50, type=int, help='Number of adaptations in MCMC. Default=50, which roughly suits for HMC.')
     parser.add_argument('--alpha', default=1.0, type=float,
                         help='Prior alpha (regulator constant). Default=1.0, which is rather bad for all priors.')
-
+    parser.add_argument('--omit', default=False, type=bool,
+                        help='Omit the command line arguments parsing section in the main.py')
     args = parser.parse_args()
 
-    if len(sys.argv) > 1:
+    if len(sys.argv) > 1 and (args.omit is not False):
         t = tomography(filename=args.file_name, targetsize=args.targetsize, itheta=args.itheta, noise=args.meas_noise,crimefree=args.crimefree,commonprefix=args.globalprefix)
         real = t.target()
         r = None
@@ -714,6 +715,7 @@ if __name__ == "__main__":
         plt.imshow(r)
         plt.show()
 
+    # If we do not care the command line
     else:
         np.random.seed(3)
         #theta = (0, 90, 50)
