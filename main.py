@@ -682,7 +682,7 @@ if __name__ == "__main__":
                         help='Omit the command line arguments parsing section in the main.py')
     args = parser.parse_args()
 
-    if len(sys.argv) > 1 and (args.omit is not False):
+    if len(sys.argv) > 1 and (args.omit is False):
         t = tomography(filename=args.file_name, targetsize=args.targetsize, itheta=args.itheta, noise=args.meas_noise,crimefree=args.crimefree,commonprefix=args.globalprefix)
         real = t.target()
         r = None
@@ -718,9 +718,9 @@ if __name__ == "__main__":
     # If we do not care the command line
     else:
         np.random.seed(3)
-        #theta = (0, 90, 50)
-        theta = 50
-        t = tomography("shepp.png", 64, theta, 0.1, crimefree=False)
+        theta = (0, 90, 50)
+        #theta = 50
+        t = tomography("shepp.png", 64, theta, 0.05, crimefree=False)
         real = t.target()
         # t.saveresult(real)
         # sg = t.sinogram()
@@ -739,8 +739,8 @@ if __name__ == "__main__":
         # #print(np.linalg.norm(real - r))
         # # tt = time.time()
         # #
-        #r = t.map_wavelet(10)
-        r = t.hmcmc_tv(15,300,50,retim=True)
+        r = t.map_wavelet(5)
+        #r = t.hmcmc_tv(15,300,50,retim=True)
         #r = t.mwg_tv(15,10000,5000,retim=True)
         print(t.difference(r))
         # r = t.map_cauchy(0.01,True)
@@ -759,7 +759,7 @@ if __name__ == "__main__":
         plt.clim(0, 1)
         plt.figure()
         #r2 = t.hmcmc_cauchy(0.001, 200, 20)
-        r2 = t.map_tv(15)
+        r2 = t.map_tv(5)
         #r2 = t.map_cauchy(0.001)
         #r2 = t.mwg_wavelet(10,5000,2000,levels=6,mapstart=True)
         #r2 = t.mwg_tv( 5,2000,200)
