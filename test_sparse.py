@@ -49,9 +49,29 @@ class container:
         self.spent = time.time()-self.spent
         self.prefix =  time.strftime("%Y-%b-%d_%H_%M_%S")
 
-r = container(adaptnum=1)
-r = None
-r.finish(result=np.zeros((50,50)))
+np.random.seed(10)
+N = 3007
+r = np.ones((1,N))
+for i in range(1,N):
+    r[0,i] = r[0,i-1] + 10.15*np.random.randn()
+k = r[0,:]-np.mean(r[0,:])
+kk = r[0,0:-1:2]-np.mean(r[0,0:-1:2])
+tt = time.time()
+c = scipy.signal.correlate(k,k,mode='full',method='fft')
+cc = scipy.signal.correlate(kk,kk,mode='full',method='fft')
+c = c[int((c.shape[0]-1)/2):]
+c = c/c[0]
+cc = cc[int((cc.shape[0]-1)/2):]
+cc = cc/cc[0]
+plt.plot(c)
+
+plt.figure()
+plt.plot(cc)
+plt.show()
+
+# r = container(adaptnum=1)
+# r = None
+# r.finish(result=np.zeros((50,50)))
 # for attr, value in r.__dict__.items():
 #         print (attr, value)
 #

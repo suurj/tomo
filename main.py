@@ -85,19 +85,21 @@ class tomography:
 
         self.flattened = np.reshape(image, (-1, 1))
 
-        if isinstance(itheta, (int, np.int32, np.int64)):
+        if isinstance(itheta, (int, np.int32, np.int64)) or (isinstance(itheta,(list,tuple)) and len(itheta) == 1):
+            if  isinstance(itheta,(list,tuple)):
+                itheta = itheta[0]
             self.theta = np.linspace(0., 180., itheta, endpoint=False)
             self.theta = self.theta / 360 * 2 * np.pi
             (self.N_r, self.N_theta) = (math.ceil(np.sqrt(2) * self.dim), itheta)
             self.rhoo = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_r, endpoint=True)
-            fname = 'radonmatrix/full-{0}x{1}.npz'.format(str(self.dim), str(self.N_theta))
+            fname = 'radonmatrix/0_180-{0}x{1}.npz'.format(str(self.dim), str(self.N_theta))
 
             if crimefree:
                 self.thetabig = np.linspace(0, 180, self.N_thetabig, endpoint=False)
                 self.thetabig = self.thetabig / 360 * 2 * np.pi
                 self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
 
-        else:
+        elif len(itheta) == 3:
             self.theta = np.linspace(itheta[0], itheta[1], itheta[2], endpoint=False)
             self.theta = self.theta / 360 * 2 * np.pi
             (self.N_r, self.N_theta) = (
@@ -110,6 +112,8 @@ class tomography:
                 self.thetabig = self.thetabig / 360 * 2 * np.pi
                 self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
 
+        else:
+            raise Exception('Invalid angle input.')
 
         if not os.path.isfile(fname):
             from matrices import radonmatrix
@@ -642,58 +646,64 @@ class tomography:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--file-name', default="shepp.png", type=str, help='Image filename. Default=shepp.png')
-    parser.add_argument('--targetsize', default=128, type=int, help='Input image is scaled to this size. Default=128')
+    parser.add_argument('--targetsize', default=64, type=int, help='Input image is scaled to this size. Default=64')
     parser.add_argument('--crimefree', default=False, type=bool, help='Simulate sinogram with larger grid and interpolate. Default=False')
     parser.add_argument('--meas-noise', default=0.01, type=float, help='Measurement noise. Default=0.01')
-    parser.add_argument('--itheta', default=50, type=int, help='Number of radon measurement angle. Default=50')
-    parser.add_argument('--globalprefix', default="", type=str, help='Prefix to file path. Default= ""')
+    parser.add_argument('--itheta', default=50,nargs="+", type=int, help='Range and/or number of radon measurement '
+    'angles in degrees. One must enter either 3 values (start angle, end angle, number of angles) or just the number of angles, when the range 0-180 is assumed. Default=50')
+    parser.add_argument('--globalprefix', default="", type=str, help='Prefix for the result files, if one wnats to save the results. Default= ""')
     parser.add_argument('--sampler', default="map", type=str, help='Method to use: hmc, mwg or map. Default= map')
+    parser.add_argument('--levels', default=2, type=int, help='Number of DWT levels to be used. Default= 2')
     parser.add_argument('--prior', default="cauchy", type=str,
                         help='Prior to use: tikhonov, cauchy, tv or wavelet. Default= cauchy')
     parser.add_argument('--wave', default="haar", type=str, help='DWT type to use with wavelets. Default=haar')
     parser.add_argument('--samples-num', default=200, type=int,
-                        help='Number of samples to be generated within MCMC methods. Default=100, which roughly suits for HMC.')
+                        help='Number of samples to be generated within MCMC methods. Default=200, which should be completed within minutes even by HMC.')
     parser.add_argument('--thinning', default=1, type=int,
-                        help='Thinning factor within MCMC methods.  Default=1 is for HMC, MwG might need thinning between 10-100. ')
+                        help='Thinning factor for MCMC methods.  Default=1 is suitable for HMC, MwG might need thinning between 10-100. ')
     parser.add_argument('--adapt-num', default=50, type=int, help='Number of adaptations in MCMC. Default=50, which roughly suits for HMC.')
-    parser.add_argument('--alpha', default=0.01, type=float,
-                        help='Prior alpha (regulator constant). Default=0.01')
+    parser.add_argument('--alpha', default=1.0, type=float,
+                        help='Prior alpha (regulator constant). Default=1.0, which is rather bad for all priors.')
 
     args = parser.parse_args()
 
     if len(sys.argv) > 1:
-        t = tomography(args.file_name, args.targetsize, args.itheta, args.meas_noise)
+        t = tomography(filename=args.file_name, targetsize=args.targetsize, itheta=args.itheta, noise=args.meas_noise,crimefree=args.crimefree)
         real = t.target()
         r = None
         if args.sampler == "hmc":
             if args.prior == "cauchy":
-                r = t.hmcmc_cauchy(args.alpha, args.samples_num, args.adapt_num)
+                r = t.hmcmc_cauchy(alpha=args.alpha, M=args.samples_num, Madapt=args.adapt_num,thinning=args.thinning)
             elif args.prior == "tv":
-                r = t.hmcmc_tv(args.alpha, args.samples_num, args.adapt_num)
+                r = t.hmcmc_tv(alpha=args.alpha, M=args.samples_num, Madapt=args.adapt_num,thinning=args.thinning)
             elif args.prior == "wavelet":
-                r = t.hmcmc_wavelet(args.alpha, args.samples_num, args.adapt_num)
+                r = t.hmcmc_wavelet(alpha=args.alpha, M=args.samples_num, Madapt=args.adapt_num,type=args.wave,levels=args.levels,thinning=args.thinning)
             elif args.prior == "tikhonov":
-                r = t.hmcmc_tikhonov(args.alpha, args.samples_num, args.adapt_num)
+                r = t.hmcmc_tikhonov(alpha=args.alpha, M=args.samples_num, Madapt=args.adapt_num,thinning=args.thinning)
         elif args.sampler == "mwg":
             if args.prior == "cauchy":
-                r = t.mwg_cauchy(args.alpha, args.samples_num, args.adapt_num)
+                r = t.mwg_cauchy(alpha=args.alpha, M=args.samples_num, Madapt=args.adapt_num,thinning=args.thinning)
             elif args.prior == "tv":
-                r = t.mwg_tv(args.alpha, args.samples_num, args.adapt_num)
+                r = t.mwg_tv(alpha=args.alpha, M=args.samples_num, Madapt=args.adapt_num,thinning=args.thinning)
             elif args.prior == "wavelet":
-                r = t.mwg_wavelet(args.alpha, args.samples_num, args.adapt_num)
+                r = t.mwg_wavelet(alpha=args.alpha, M=args.samples_num, Madapt=args.adapt_num,type=args.wave,levels=args.levels,thinning=args.thinning)
         elif args.sampler == "map":
             if args.prior == "cauchy":
-                r = t.map_cauchy(args.alpha)
+                r = t.map_cauchy(alpha=args.alpha)
             elif args.prior == "tv":
-                r = t.map_tv(args.alpha)
+                r = t.map_tv(alpha=args.alpha)
             elif args.prior == "wavelet":
-                r = t.map_wavelet(args.alpha)
+                r = t.map_wavelet(alpha=args.alpha,type=args.wave,levels=args.levels)
             elif args.prior == "tikhonov":
-                r = t.map_tikhonov(args.alpha)
+                r = t.map_tikhonov(alpha=args.alpha)
+
+        plt.imshow(r)
+        plt.show()
+
     else:
         np.random.seed(3)
-        theta = (0, 90, 50)
-        #theta = 50
+        #theta = (0, 90, 50)
+        theta = 50
         t = tomography("shepp.png", 64, theta, 0.1, crimefree=False)
         real = t.target()
         # t.saveresult(real)
@@ -714,7 +724,8 @@ if __name__ == "__main__":
         # # tt = time.time()
         # #
         #r = t.map_wavelet(10)
-        r = t.map_tv(20,retim=True)
+        r = t.hmcmc_tv(15,300,50,retim=True)
+        #r = t.mwg_tv(15,10000,5000,retim=True)
         print(t.difference(r))
         # r = t.map_cauchy(0.01,True)
 
@@ -732,7 +743,7 @@ if __name__ == "__main__":
         plt.clim(0, 1)
         plt.figure()
         #r2 = t.hmcmc_cauchy(0.001, 200, 20)
-        r2 = t.map_tv(5)
+        r2 = t.map_tv(15)
         #r2 = t.map_cauchy(0.001)
         #r2 = t.mwg_wavelet(10,5000,2000,levels=6,mapstart=True)
         #r2 = t.mwg_tv( 5,2000,200)
