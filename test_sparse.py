@@ -49,22 +49,39 @@ class container:
         self.spent = time.time()-self.spent
         self.prefix =  time.strftime("%Y-%b-%d_%H_%M_%S")
 
-np.random.seed(10)
-N = 3007
-r = np.ones((1,N))
-for i in range(1,N):
-    r[0,i] = r[0,i-1] + 10.15*np.random.randn()
-k = r[0,:]-np.mean(r[0,:])
-kk = r[0,0:-1:2]-np.mean(r[0,0:-1:2])
-tt = time.time()
-c = scipy.signal.correlate(k,k,mode='full',method='fft')
-cc = scipy.signal.correlate(kk,kk,mode='full',method='fft')
-c = c[int((c.shape[0]-1)/2):]
-c = c/c[0]
-cc = cc[int((cc.shape[0]-1)/2):]
-cc = cc/cc[0]
-plt.plot(c)
+def correlationrow(M):
+    if(len(M.shape)<=1 or M.shape[0]<=1):
+        M = M - np.mean(M)
+        M = scipy.signal.correlate(M, M, mode='full', method='fft')
+        M = M[int((M.shape[0] - 1) / 2):]
+        return  M/ M[0]
 
+    else:
+        M = M - np.mean(M,axis=1,keepdims=True)
+        M = np.apply_along_axis(lambda x: scipy.signal.correlate(x,x, mode='full', method='fft'),axis=1,arr=M)
+        M = M[:,int((M.shape[1] - 1) / 2):]
+        return  M / np.reshape(M[:,0],(-1,1))
+
+
+np.random.seed(10)
+N = 3000
+M = 30000
+r = np.ones((M,N))
+for i in range(1,N):
+    r[:,i] = r[:,i-1] + 10.15*np.random.randn(M)
+
+c = correlationrow(r[0:17,:])
+cc=correlationrow(r[16,:])
+# k = r[0,:]-np.mean(r[0,:])
+# kk = r[0,0:-1:2]-np.mean(r[0,0:-1:2])
+# tt = time.time()
+# c = scipy.signal.correlate(k,k,mode='full',method='fft')
+# cc = scipy.signal.correlate(kk,kk,mode='full',method='fft')
+# c = c[int((c.shape[0]-1)/2):]
+# c = c/c[0]
+# cc = cc[int((cc.shape[0]-1)/2):]
+# cc = cc/cc[0]
+plt.plot(c[16,:])
 plt.figure()
 plt.plot(cc)
 plt.show()

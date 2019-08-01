@@ -5,6 +5,7 @@ import numpy as np
 import pywt
 import scipy.interpolate as interpolate
 from scipy.optimize import minimize
+from scipy.signal import correlate
 import time
 import math
 import sys
@@ -48,7 +49,7 @@ class container:
 
 class tomography:
 
-    def __init__(self, filename, targetsize=128, itheta=50, noise=0.0,  commonprefix="/results/", dimbig = 607, N_thetabig=421, crimefree=False,lhdev=None):
+    def __init__(self, filename, targetsize=128, itheta=50, noise=0.0,  commonprefix="", dimbig = 607, N_thetabig=421, crimefree=False,lhdev=None):
         self.globalprefix = str(pathlib.Path.cwd()) + commonprefix
         if not os.path.exists(self.globalprefix):
             os.makedirs(self.globalprefix)
@@ -625,6 +626,19 @@ class tomography:
         L2 = np.linalg.norm(t-r,ord=2)/np.linalg.norm(t,ord=2)
         return L1,L2
 
+    def correlationrow(self,M):
+        if (len(M.shape) <= 1 or M.shape[0] <= 1):
+            M = M - np.mean(M)
+            M = correlate(M, M, mode='full', method='fft')
+            M = M[int((M.shape[0] - 1) / 2):]
+            return M / M[0]
+
+        else:
+            M = M - np.mean(M, axis=1, keepdims=True)
+            M = np.apply_along_axis(lambda x: correlate(x, x, mode='full', method='fft'), axis=1, arr=M)
+            M = M[:, int((M.shape[1] - 1) / 2):]
+            return M / np.reshape(M[:, 0], (-1, 1))
+
     def saveresult(self,result):
         import h5py
         filename = self.globalprefix + result.prefix + ".hdf5"
@@ -650,8 +664,8 @@ if __name__ == "__main__":
     parser.add_argument('--crimefree', default=False, type=bool, help='Simulate sinogram with larger grid and interpolate. Default=False')
     parser.add_argument('--meas-noise', default=0.01, type=float, help='Measurement noise. Default=0.01')
     parser.add_argument('--itheta', default=50,nargs="+", type=int, help='Range and/or number of radon measurement '
-    'angles in degrees. One must enter either 3 values (start angle, end angle, number of angles) or just the number of angles, when the range 0-180 is assumed. Default=50')
-    parser.add_argument('--globalprefix', default="", type=str, help='Prefix for the result files, if one wnats to save the results. Default= ""')
+    'angles in degrees. One must enter either 3 values (start angle, end angle, number of angles) or just the number of angles, in case the range 0-180 is assumed. Default=50')
+    parser.add_argument('--globalprefix', default="/results/", type=str, help='Relative prefix to the script itself, if one wants to save the results. Default= /results/')
     parser.add_argument('--sampler', default="map", type=str, help='Method to use: hmc, mwg or map. Default= map')
     parser.add_argument('--levels', default=2, type=int, help='Number of DWT levels to be used. Default= 2')
     parser.add_argument('--prior', default="cauchy", type=str,
@@ -668,7 +682,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if len(sys.argv) > 1:
-        t = tomography(filename=args.file_name, targetsize=args.targetsize, itheta=args.itheta, noise=args.meas_noise,crimefree=args.crimefree)
+        t = tomography(filename=args.file_name, targetsize=args.targetsize, itheta=args.itheta, noise=args.meas_noise,crimefree=args.crimefree,commonprefix=args.globalprefix)
         real = t.target()
         r = None
         if args.sampler == "hmc":
