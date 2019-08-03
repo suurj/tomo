@@ -30,5 +30,14 @@ After the class is initialized, the calculations itself can be run. The names of
 
 For all methods, the most important  parameter is the prior's regularization parameter. Depending on the prior, it can be selected also so that the reconstructions remain approximately the same even if the resolution of the image is increased. The second important parameter is technical. With the _retim_ parameter one can select what the methods actually return. The _retim_ is by default True for all methods, which means that the methods return only the reconstructed image. If the parameter is False, an instance of _container_ class is returned. The class can be feed as an argument to the _saveresult_ method, which then saves the result to a hdf5 file for later analysis.
 
--tomography.\_\_init\_\_filename, targetsize=128, itheta=50, noise=0.0,  commonprefix="", dimbig = 607, N\_thetabig=421, crimefree=False,lhdev=None)
+- tomography.\_\_init\_\_filename, targetsize=128, itheta=50, noise=0.0,  commonprefix="", dimbig = 607, N\_thetabig=421, crimefree=False,lhdev=None)
+    One might increase dimbig  and N\_thetabig from their default values, if the targetsize is near to 500.
+    
+- map\_tikhonov( alpha=1.0, order=1,maxiter=400,retim=True)
+    MAP function for Tikhonov regularization. Order means the order of the discrete derivative ( 1 or 2).  
 
+-  map\_tv( alpha=1.0, maxiter=400,retim=True)
+    MAP function for total variation regularization.
+
+- map\_cauchy(alpha=0.05, maxiter=400,retim=True)
+    MAP function for total variation regularization.

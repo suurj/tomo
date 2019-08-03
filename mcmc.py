@@ -1,53 +1,66 @@
 import scipy.sparse as sp
 import numpy as np
 from scipy.sparse import csr_matrix,csc_matrix
-#from autograd import grad
 import scipy
 from line_profiler import LineProfiler
 import  time
 import matplotlib.pyplot as plt
-#from cyt import hmc,tv_grad,cauchy_grad,tikhonov_grad,mwg_tv,mwg_cauchy
 
-# f = 2*np.random.randn(1000,1)
-# m = np.zeros((1000,))
-# v = np.zeros((1000,1))
-# m[0] = f[0]
-# a = m[0]
-# c = 0
-#
-# for i in range(1,1000):
-#     au = 1 / (i+1) * ((i) * a + f[i])
-#     m[i] = au
-#     c = (i - 1) / (i) * v[i-1]*v[i-1] + 1 / i * (f[i] - a) ** 2;
-#     a = au;
-#     v[i] = 2.4*np.sqrt(c) + 10**-12;
-#
-# exit(1)
+from cyt import hmc, tfun_cauchy, tfun_tikhonov, tikhonov_grad,tfun_tv, tv_grad ,cauchy_grad,argumentspack
+from pytwalk import pytwalk as pytwalk2
+from twalk import pytwalk
 
-#M = sp.eye(2,format='csc')
 
-# M = np.array([[10, 0.9],[0.9,1]])
-# M = np.linalg.inv(M)
-# M = np.linalg.cholesky(M)
-# M = sp.csc_matrix(M)
-# Lx = sp.csc_matrix((2,2),dtype='double')
-# Ly = sp.csc_matrix((2,2),dtype='double')
-# y = np.array([[10.0],[-17.0]],dtype='double')
-# y = M.dot(y)
-# x0 = np.array([[2,3]],dtype='double').T
-# N = 100000
-# g = mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=0.001,lhsigma=1.0)
-# g = g[:,0:100]
-# print(np.mean(g,axis=1))
-# print(np.cov(g))
-# plt.plot(g[0,:],g[1,:],'*r')
-# plt.show()
+ww=pytwalk2(n=10,n1phi=4,aw=1.5,at=6.0)
+rr=ww.Run( T=3500, x0=np.random.randn(10,), xp0=1*np.random.randn(10,))
+#print(np.cov(rr))
+#ww.Ana()
+plt.plot(rr[0,:])
+#plt.plot(rr[0,:],rr[1,:],'*r')
+plt.show()
+exit(0)
 
-#exit(1)
 
-from numba import jit
-#@jit(nopython=True)
-#@profile
+
+
+def  gradient(f,Q,x):
+    N = x.shape[0]
+    eps = 1e-7;
+    xn = x.copy(); xe = x.copy();
+    gr = np.zeros((N,1));
+    for i  in range(N):
+        xn[i] = x[i] + eps;
+        xe[i] = x[i] - eps;
+        gr[i] = (f(xn,Q) -f(xe,Q))/(2*eps);
+        xn[i] = x[i];
+        xe[i] = x[i];
+
+    return  gr
+
+
+
+Q = argumentspack()
+Q.s2 = 1
+Q.a = 10
+# Q.M = np.array([[3,-2.5],[-2.5,15]])
+# Q.M = np.linalg.inv(Q.M)
+# Q.M = np.linalg.cholesky(Q.M)
+#Q.M = Q.M.T
+Q.M = np.eye(1000)
+Q.M = csc_matrix(Q.M)
+Q.y = np.zeros((1000,1))
+Q.gradi = tikhonov_grad
+Q.logdensity = tfun_tikhonov
+#Q.logdensity = lambda x,Q: -0.5/Q.s2* np.dot(Q.M.dot(x).T, Q.M.dot(x))
+#Q.gradi = lambda x,Q:  -0.5/Q.s2*2*((Q.M.T).dot(Q.M)).dot(x)
+Lx=np.zeros((100,1000))
+#Ly=np.random.rand(3,3)
+Ly = np.zeros((100,1000))
+Q.Lx = csc_matrix(Lx)
+Q.Ly = csc_matrix(Ly)
+uf = lambda x: -tfun_tikhonov(x,Q)
+su = lambda x: True
+t = time.time()
 
 '''
 def hmc(N,x):
@@ -316,59 +329,7 @@ def hmc(M,theta0,Q,Madapt,de=0.6,cm=False):
         return cmestimate
 #print(grad(pdf)(np.array([-0.6490,1.1812,-0.7585]) ))
 '''
-from cyt import hmc, tfun_cauchy, tfun_tikhonov, tikhonov_grad,tfun_tv, tv_grad ,cauchy_grad,argumentspack
-from pytwalk import pytwalk as pytwalk2
-from twalk import pytwalk
 
-def  gradient(f,Q,x):
-    N = x.shape[0]
-    eps = 1e-7;
-    xn = x.copy(); xe = x.copy();
-    gr = np.zeros((N,1));
-    for i  in range(N):
-        xn[i] = x[i] + eps;
-        xe[i] = x[i] - eps;
-        gr[i] = (f(xn,Q) -f(xe,Q))/(2*eps);
-        xn[i] = x[i];
-        xe[i] = x[i];
-
-    return  gr
-
-Q = argumentspack()
-Q.s2 = 1
-Q.a = 10
-# Q.M = np.array([[3,-2.5],[-2.5,15]])
-# Q.M = np.linalg.inv(Q.M)
-# Q.M = np.linalg.cholesky(Q.M)
-#Q.M = Q.M.T
-Q.M = np.eye(1000)
-Q.M = csc_matrix(Q.M)
-Q.y = np.zeros((1000,1))
-Q.gradi = tikhonov_grad
-Q.logdensity = tfun_tikhonov
-#Q.logdensity = lambda x,Q: -0.5/Q.s2* np.dot(Q.M.dot(x).T, Q.M.dot(x))
-#Q.gradi = lambda x,Q:  -0.5/Q.s2*2*((Q.M.T).dot(Q.M)).dot(x)
-Lx=np.zeros((100,1000))
-#Ly=np.random.rand(3,3)
-Ly = np.zeros((100,1000))
-Q.Lx = csc_matrix(Lx)
-Q.Ly = csc_matrix(Ly)
-uf = lambda x: -tfun_tikhonov(x,Q)
-su = lambda x: True
-t = time.time()
-ww=pytwalk(n=1000,n1phi=4,aw=1.5,at=6.0)
-
-rr=ww.Run( T=150000, x0=np.random.randn(1000,), xp0=1*np.random.randn(1000,))
-#print(np.cov(rr))
-#ww.Ana()
-#rr=hmc(10000,x,Q,100,cm=False)
-#print(rr)
-#np.random.seed(1)
-#w=np.mean(rr,axis=1)
-print(time.time()-t)
-plt.plot(rr[0,:],rr[1,:],'*r')
-plt.show()
-exit(0)
 #Q.logdensity = lambda x: -0.5/Q.s2*x*x
 #Q.gradi = lambda x: -2*x
 #print(Q.gradi,id(Q.gradi),id(j),id(Q.s2))
@@ -688,3 +649,46 @@ def am(N,x):
 # #print(np.mean(c,axis=1))
 # #plt.plot(w[0,:],w[1,:],'b*')
 # plt.show()
+
+#from cyt import hmc,tv_grad,cauchy_grad,tikhonov_grad,mwg_tv,mwg_cauchy
+
+# f = 2*np.random.randn(1000,1)
+# m = np.zeros((1000,))
+# v = np.zeros((1000,1))
+# m[0] = f[0]
+# a = m[0]
+# c = 0
+#
+# for i in range(1,1000):
+#     au = 1 / (i+1) * ((i) * a + f[i])
+#     m[i] = au
+#     c = (i - 1) / (i) * v[i-1]*v[i-1] + 1 / i * (f[i] - a) ** 2;
+#     a = au;
+#     v[i] = 2.4*np.sqrt(c) + 10**-12;
+#
+# exit(1)
+
+#M = sp.eye(2,format='csc')
+
+# M = np.array([[10, 0.9],[0.9,1]])
+# M = np.linalg.inv(M)
+# M = np.linalg.cholesky(M)
+# M = sp.csc_matrix(M)
+# Lx = sp.csc_matrix((2,2),dtype='double')
+# Ly = sp.csc_matrix((2,2),dtype='double')
+# y = np.array([[10.0],[-17.0]],dtype='double')
+# y = M.dot(y)
+# x0 = np.array([[2,3]],dtype='double').T
+# N = 100000
+# g = mwg_cauchy(M, Lx, Ly,  y, x0,N, regalpha=1.0, samplebeta=0.3, sampsigma=0.001,lhsigma=1.0)
+# g = g[:,0:100]
+# print(np.mean(g,axis=1))
+# print(np.cov(g))
+# plt.plot(g[0,:],g[1,:],'*r')
+# plt.show()
+
+#exit(1)
+
+from numba import jit
+#@jit(nopython=True)
+#@profile

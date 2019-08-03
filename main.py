@@ -19,7 +19,7 @@ from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_gra
     argumentspack
 
 class container:
-    def __init__(self,target=np.zeros((2,2)),l1=-1.0,l2=-1.0,result=np.zeros((2,2)),noise=-1.0,imagefilename='None',targetsize=0,theta=np.zeros((1,)),method='None',prior='None',totaliternum=0,levels=0,adaptnum=0,alpha=0.0,globalprefix=""):
+    def __init__(self,target=np.zeros((2,2)),l1=-1.0,l2=-1.0,result=np.zeros((2,2)),thinning=-1,noise=-1.0,imagefilename=None,targetsize=0,theta=np.zeros((1,)),method=None,prior=None,totaliternum=0,levels=0,adaptnum=0,alpha=0.0,globalprefix=""):
         self.spent = time.time()
         self.l1 = l1
         self.l2 = l2
@@ -29,6 +29,7 @@ class container:
         self.imagefilename = imagefilename
         self.targetsize = targetsize
         self.theta = theta
+        self.thinning = thinning
         self.method = method
         self.prior = prior
         self.totaliternum = totaliternum
@@ -36,13 +37,17 @@ class container:
         self.alpha = alpha
         self.levels = levels
         self.globalprefix = globalprefix
+        self.chain = None
         self.prefix = ''
 
-    def finish(self,result=None,error=(-1.0,-1.0),iters=None):
+    def finish(self,result=None,chain=None,error=(-1.0,-1.0),iters=None,thinning=-1):
         self.l1 = error[0]
         self.l2 = error[1]
         if iters is not None:
             self.totaliternum = iters
+        if (chain is not None):
+            self.thinning = thinning
+            self.chain=chain
         self.result = result
         self.spent = time.time()-self.spent
         self.prefix =  time.strftime("%Y-%b-%d_%H_%M_%S") + '+' + self.prior + '+' + self.method
@@ -265,7 +270,7 @@ class tomography:
         q = -tv_grad(x, self.Q)
         return np.ravel(q)
 
-    def map_cauchy(self, alpha=1.0, maxiter=400,retim=True):
+    def map_cauchy(self, alpha=0.05, maxiter=400,retim=True):
         res = None
         if not retim:
             res = container(alpha=alpha,prior='cauchy',method='map',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta/(2*np.pi)*360)
@@ -380,7 +385,7 @@ class tomography:
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
-            res.finish(solution, self.difference(solution))
+            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
             return res
         else:
             return solution
@@ -417,7 +422,7 @@ class tomography:
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
-            res.finish(solution, self.difference(solution))
+            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
             return res
         else:
             return solution
@@ -454,7 +459,7 @@ class tomography:
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
-            res.finish(solution, self.difference(solution))
+            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
             return res
         else:
             return solution
@@ -489,7 +494,7 @@ class tomography:
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
-            res.finish(solution, self.difference(solution))
+            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
             return res
         else:
             return solution
@@ -527,7 +532,7 @@ class tomography:
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
-            res.finish(solution, self.difference(solution))
+            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
             return res
         else:
             return solution
@@ -565,7 +570,7 @@ class tomography:
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
-            res.finish(solution, self.difference(solution))
+            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
             return res
         else:
             return solution
@@ -602,7 +607,7 @@ class tomography:
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
-            res.finish(solution, self.difference(solution))
+            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
             return res
         else:
             return solution
@@ -718,9 +723,9 @@ if __name__ == "__main__":
     # If we do not care the command line
     else:
         np.random.seed(3)
-        theta = (0, 90, 50)
-        #theta = 50
-        t = tomography("shepp.png", 64, theta, 0.05, crimefree=False)
+        #theta = (0, 90, 50)
+        theta = 50
+        t = tomography("shepp.png", 128, theta, 0.05, crimefree=True)
         real = t.target()
         # t.saveresult(real)
         # sg = t.sinogram()
@@ -739,9 +744,12 @@ if __name__ == "__main__":
         # #print(np.linalg.norm(real - r))
         # # tt = time.time()
         # #
-        r = t.map_wavelet(5)
-        #r = t.hmcmc_tv(15,300,50,retim=True)
-        #r = t.mwg_tv(15,10000,5000,retim=True)
+        #r = t.map_wavelet(5)
+        res = t.hmcmc_cauchy(0.01, 230, 30, thinning=1, mapstart=True, retim=False)
+        #res = t.mwg_cauchy(0.01,20000,10000,thinning=10,mapstart=False,retim=False)
+        r = res.result
+        plt.plot(res.chain[5656,:])
+        plt.figure()
         print(t.difference(r))
         # r = t.map_cauchy(0.01,True)
 
@@ -759,7 +767,7 @@ if __name__ == "__main__":
         plt.clim(0, 1)
         plt.figure()
         #r2 = t.hmcmc_cauchy(0.001, 200, 20)
-        r2 = t.map_tv(5)
+        r2 = t.map_cauchy(0.01)
         #r2 = t.map_cauchy(0.001)
         #r2 = t.mwg_wavelet(10,5000,2000,levels=6,mapstart=True)
         #r2 = t.mwg_tv( 5,2000,200)
