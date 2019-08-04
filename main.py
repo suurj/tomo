@@ -18,6 +18,7 @@ from tqdm import tqdm
 from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_grad, tfun_tv as ltv, tv_grad, cauchy_grad, \
     argumentspack
 
+# Class to store results of one computation.
 class container:
     def __init__(self,target=np.zeros((2,2)),l1=-1.0,l2=-1.0,result=np.zeros((2,2)),thinning=-1,noise=-1.0,imagefilename=None,targetsize=0,theta=np.zeros((1,)),method=None,prior=None,crimefree=False,totaliternum=0,levels=0,adaptnum=0,alpha=0.0,globalprefix=""):
         self.spent = time.time()
@@ -392,115 +393,6 @@ class tomography:
         else:
             return solution
 
-    def mwg_tv(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True):
-        res = None
-        if not retim:
-            res = container(totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta/(2*np.pi)*360)
-        from cyt import mwg_tv as mwgt
-        regvalues = np.array([1, -1, 1])
-        offsets = np.array([-self.dim + 1, 0, 1])
-        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        regx = sp.kron(sp.eye(self.dim), reg1d)
-        regy = sp.kron(reg1d, sp.eye(self.dim))
-        regx = sp.csc_matrix(regx)
-        regy = sp.csc_matrix(regy)
-        self.radonoperator = sp.csc_matrix(self.radonoperator)
-        alpha = alpha
-        combined = sp.vstack([regy, regx], format='csc')
-        empty = sp.csc_matrix((1, self.dim * self.dim))
-        self.Q.Lx = combined
-        self.Q.Ly = empty
-        self.Q.a = alpha
-        self.Q.s2 = self.lhsigmsq
-        self.Q.b = 0.00
-        self.Q.y = self.lines
-        if (mapstart):
-            x0 = np.reshape(self.map_tv(alpha, maxiter=150), (-1, 1))
-            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
-        else:
-            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
-        print("Running MwG MCMC for TV prior.")
-        solution,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim,thinning=thinning)
-        solution = np.reshape(solution, (-1, 1))
-        solution = np.reshape(solution, (self.dim, self.dim))
-        if not retim:
-            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
-            return res
-        else:
-            return solution
-
-    def mwg_cauchy(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True):
-        res = None
-        if not retim:
-            res = container(totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta/(2*np.pi)*360)
-        from cyt import mwg_cauchy as mwgc
-        regvalues = np.array([1, -1, 1])
-        offsets = np.array([-self.dim + 1, 0, 1])
-        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        regx = sp.kron(sp.eye(self.dim), reg1d)
-        regy = sp.kron(reg1d, sp.eye(self.dim))
-        regx = sp.csc_matrix(regx)
-        regy = sp.csc_matrix(regy)
-        self.radonoperator = sp.csc_matrix(self.radonoperator)
-        alpha = alpha
-        combined = sp.vstack([regy, regx], format='csc')
-        empty = sp.csc_matrix((1, self.dim * self.dim))
-        self.Q.Lx = combined
-        self.Q.Ly = empty
-        self.Q.a = alpha
-        self.Q.s2 = self.lhsigmsq
-        self.Q.b = 0.01
-        self.Q.y = self.lines
-        if mapstart:
-            x0 = np.reshape(self.map_cauchy(alpha, maxiter=150), (-1, 1))
-            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
-        else:
-            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
-        print("Running MwG MCMC for Cauchy prior.")
-        solution, chain = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim, thinning=thinning)
-        solution = np.reshape(solution, (-1, 1))
-        solution = np.reshape(solution, (self.dim, self.dim))
-        if not retim:
-            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
-            return res
-        else:
-            return solution
-
-    def mwg_wavelet(self, alpha, M=10000, Madapt=1000,type='haar',levels=3,mapstart=False,thinning=10,retim=True):
-        res = None
-        if not retim:
-            res = container(totaliternum=M,levels=levels,adaptnum=Madapt,alpha=alpha,prior=type,method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta/(2*np.pi)*360)
-        from matrices import totalmatrix
-        from cyt import mwg_tv as mwgt
-        wl = pywt.Wavelet(type)
-        g = np.array(wl.dec_lo)
-        h = np.array(wl.dec_hi)
-        regx = totalmatrix(self.dim, levels, g, h)
-        regy = sp.csc_matrix((1, self.dim * self.dim))
-        regx = sp.csc_matrix(regx)
-        regy = sp.csc_matrix(regy)
-        self.radonoperator = sp.csc_matrix(self.radonoperator)
-        alpha = alpha
-        self.Q.Lx = regx
-        self.Q.b = 0.0000
-        self.Q.Ly = regy
-        self.Q.a = alpha
-        self.Q.s2 = self.lhsigmsq
-        if (mapstart):
-            x0 = np.reshape(self.map_wavelet(alpha, type=type,levels=levels, maxiter=150), (-1, 1))
-            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
-        else:
-            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
-        print("Running MwG MCMC for Besov prior.")
-        solution,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim,thinning=thinning)
-        solution = np.reshape(solution, (-1, 1))
-        solution = np.reshape(solution, (self.dim, self.dim))
-        if not retim:
-            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
-            return res
-        else:
-            return solution
-
     def hmcmc_tv(self, alpha, M=100, Madapt=20,mapstart=False,thinning=1,retim=True):
         res = None
         if not retim:
@@ -613,6 +505,117 @@ class tomography:
             return res
         else:
             return solution
+
+    def mwg_tv(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True):
+        res = None
+        if not retim:
+            res = container(totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta/(2*np.pi)*360)
+        from cyt import mwg_tv as mwgt
+        regvalues = np.array([1, -1, 1])
+        offsets = np.array([-self.dim + 1, 0, 1])
+        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        regx = sp.kron(sp.eye(self.dim), reg1d)
+        regy = sp.kron(reg1d, sp.eye(self.dim))
+        regx = sp.csc_matrix(regx)
+        regy = sp.csc_matrix(regy)
+        self.radonoperator = sp.csc_matrix(self.radonoperator)
+        alpha = alpha
+        combined = sp.vstack([regy, regx], format='csc')
+        empty = sp.csc_matrix((1, self.dim * self.dim))
+        self.Q.Lx = combined
+        self.Q.Ly = empty
+        self.Q.a = alpha
+        self.Q.s2 = self.lhsigmsq
+        self.Q.b = 0.00
+        self.Q.y = self.lines
+        if (mapstart):
+            x0 = np.reshape(self.map_tv(alpha, maxiter=150), (-1, 1))
+            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
+        else:
+            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+        print("Running MwG MCMC for TV prior.")
+        solution,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim,thinning=thinning)
+        solution = np.reshape(solution, (-1, 1))
+        solution = np.reshape(solution, (self.dim, self.dim))
+        if not retim:
+            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
+            return res
+        else:
+            return solution
+
+    def mwg_cauchy(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True):
+        res = None
+        if not retim:
+            res = container(totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta/(2*np.pi)*360)
+        from cyt import mwg_cauchy as mwgc
+        regvalues = np.array([1, -1, 1])
+        offsets = np.array([-self.dim + 1, 0, 1])
+        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        regx = sp.kron(sp.eye(self.dim), reg1d)
+        regy = sp.kron(reg1d, sp.eye(self.dim))
+        regx = sp.csc_matrix(regx)
+        regy = sp.csc_matrix(regy)
+        self.radonoperator = sp.csc_matrix(self.radonoperator)
+        alpha = alpha
+        combined = sp.vstack([regy, regx], format='csc')
+        empty = sp.csc_matrix((1, self.dim * self.dim))
+        self.Q.Lx = combined
+        self.Q.Ly = empty
+        self.Q.a = alpha
+        self.Q.s2 = self.lhsigmsq
+        self.Q.b = 0.01
+        self.Q.y = self.lines
+        if mapstart:
+            x0 = np.reshape(self.map_cauchy(alpha, maxiter=150), (-1, 1))
+            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
+        else:
+            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+        print("Running MwG MCMC for Cauchy prior.")
+        solution, chain = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim, thinning=thinning)
+        solution = np.reshape(solution, (-1, 1))
+        solution = np.reshape(solution, (self.dim, self.dim))
+        if not retim:
+            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
+            return res
+        else:
+            return solution
+
+    def mwg_wavelet(self, alpha, M=10000, Madapt=1000,type='haar',levels=3,mapstart=False,thinning=10,retim=True):
+        res = None
+        if not retim:
+            res = container(totaliternum=M,levels=levels,adaptnum=Madapt,alpha=alpha,prior=type,method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta/(2*np.pi)*360)
+        from matrices import totalmatrix
+        from cyt import mwg_tv as mwgt
+        wl = pywt.Wavelet(type)
+        g = np.array(wl.dec_lo)
+        h = np.array(wl.dec_hi)
+        regx = totalmatrix(self.dim, levels, g, h)
+        regy = sp.csc_matrix((1, self.dim * self.dim))
+        regx = sp.csc_matrix(regx)
+        regy = sp.csc_matrix(regy)
+        self.radonoperator = sp.csc_matrix(self.radonoperator)
+        alpha = alpha
+        self.Q.Lx = regx
+        self.Q.b = 0.0000
+        self.Q.Ly = regy
+        self.Q.a = alpha
+        self.Q.s2 = self.lhsigmsq
+        if (mapstart):
+            x0 = np.reshape(self.map_wavelet(alpha, type=type,levels=levels, maxiter=150), (-1, 1))
+            x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
+        else:
+            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+        print("Running MwG MCMC for Besov prior.")
+        solution,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim,thinning=thinning)
+        solution = np.reshape(solution, (-1, 1))
+        solution = np.reshape(solution, (self.dim, self.dim))
+        if not retim:
+            res.finish(result=solution, error=self.difference(solution),chain=chain,thinning=thinning)
+            return res
+        else:
+            return solution
+
+
 
     def target(self):
         return self.targetimage
