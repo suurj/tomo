@@ -615,8 +615,6 @@ class tomography:
         else:
             return solution
 
-
-
     def target(self):
         return self.targetimage
 
