@@ -19,12 +19,13 @@ from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_gra
     argumentspack
 
 class container:
-    def __init__(self,target=np.zeros((2,2)),l1=-1.0,l2=-1.0,result=np.zeros((2,2)),thinning=-1,noise=-1.0,imagefilename=None,targetsize=0,theta=np.zeros((1,)),method=None,prior=None,totaliternum=0,levels=0,adaptnum=0,alpha=0.0,globalprefix=""):
+    def __init__(self,target=np.zeros((2,2)),l1=-1.0,l2=-1.0,result=np.zeros((2,2)),thinning=-1,noise=-1.0,imagefilename=None,targetsize=0,theta=np.zeros((1,)),method=None,prior=None,crimefree=False,totaliternum=0,levels=0,adaptnum=0,alpha=0.0,globalprefix=""):
         self.spent = time.time()
         self.l1 = l1
         self.l2 = l2
         self.target = target
         self.noise = noise
+        self.crimefree = crimefree
         self.result = result
         self.imagefilename = imagefilename
         self.targetsize = targetsize
@@ -50,7 +51,7 @@ class container:
             self.chain=chain
         self.result = result
         self.spent = time.time()-self.spent
-        self.prefix =  time.strftime("%Y-%b-%d_%H_%M_%S") + '+' + self.prior + '+' + self.method
+        self.prefix =  time.strftime("%Y-%b-%d_%H_%M_%S") + '+' + self.prior + '+' + self.method + '+' + str(self.noise) + '+' + str(self.theta[0])+ '_' + str(self.theta[-1]) + '-'  + str(self.targetsize) + 'x' + str(len(self.theta))
 
 class tomography:
 
@@ -65,6 +66,7 @@ class tomography:
         self.dimbig = dimbig
         self.N_thetabig = N_thetabig
         self.N_rbig = math.ceil(np.sqrt(2) * self.dimbig)
+        self.crimefree = crimefree
         if targetsize > 512:
             raise Exception(
                 'Dimensions of the target image are too large (' + str(targetsize) + 'x' + str(targetsize) + ')')
@@ -77,7 +79,7 @@ class tomography:
         self.targetimage = imread(filename, as_gray=True)
         self.targetimage = resize(self.targetimage, (self.dim, self.dim), anti_aliasing=False, preserve_range=True,
                             order=1, mode='symmetric')
-        if crimefree:
+        if self.crimefree:
             image = imread(filename, as_gray=True)
             image = resize(image, (self.dimbig, self.dimbig), anti_aliasing=False, preserve_range=True,
                                 order=1, mode='symmetric')
@@ -100,7 +102,7 @@ class tomography:
             self.rhoo = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_r, endpoint=True)
             fname = 'radonmatrix/0_180-{0}x{1}.npz'.format(str(self.dim), str(self.N_theta))
 
-            if crimefree:
+            if self.crimefree:
                 self.thetabig = np.linspace(0, 180, self.N_thetabig, endpoint=False)
                 self.thetabig = self.thetabig / 360 * 2 * np.pi
                 self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
@@ -113,7 +115,7 @@ class tomography:
             self.rhoo = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_r, endpoint=True)
             fname = 'radonmatrix/{0}_{1}-{2}x{3}.npz'.format(str(itheta[0]), str(itheta[1]), str(self.dim), str(self.N_theta))
 
-            if (crimefree):
+            if (self.crimefree):
                 self.thetabig = np.linspace(itheta[0], itheta[1], self.N_thetabig, endpoint=False)
                 self.thetabig = self.thetabig / 360 * 2 * np.pi
                 self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
@@ -142,7 +144,7 @@ class tomography:
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         self.radonoperator = self.radonoperator / self.dim
 
-        if (crimefree):
+        if self.crimefree:
             #self.radonoperatorbig = sp.load_npz(fnamebig) / self.dimbig
             #simulated = self.radonoperatorbig@self.flattened
             #simulated = np.reshape(simulated,(self.N_rbig,self.N_thetabig))
@@ -179,7 +181,7 @@ class tomography:
     def map_tikhonov(self, alpha=1.0, order=1,maxiter=400,retim=True):
         res = None
         if not retim:
-            res = container(alpha=alpha, prior='tikhonov', levels=order, method='map', noise=self.noise, imagefilename=self.filename,
+            res = container(alpha=alpha,crimefree=self.crimefree, prior='tikhonov', levels=order, method='map', noise=self.noise, imagefilename=self.filename,
                             target=self.targetimage, targetsize=self.dim, theta=self.theta)
         if (order == 2):
             regvalues = np.array([2, -1, -1, -1, -1])
@@ -228,7 +230,7 @@ class tomography:
     def map_tv(self, alpha=1.0, maxiter=400,retim=True):
         res = None
         if not retim:
-            res = container(alpha=alpha, prior='tv', method='map', noise=self.noise, imagefilename=self.filename,
+            res = container(alpha=alpha,crimefree=self.crimefree, prior='tv', method='map', noise=self.noise, imagefilename=self.filename,
                             target=self.targetimage, targetsize=self.dim, theta=self.theta/(2*np.pi)*360)
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
@@ -273,7 +275,7 @@ class tomography:
     def map_cauchy(self, alpha=0.05, maxiter=400,retim=True):
         res = None
         if not retim:
-            res = container(alpha=alpha,prior='cauchy',method='map',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta/(2*np.pi)*360)
+            res = container(alpha=alpha,crimefree=self.crimefree,prior='cauchy',method='map',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta/(2*np.pi)*360)
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
         reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
@@ -317,7 +319,7 @@ class tomography:
     def map_wavelet(self, alpha=1.0, type='haar', maxiter=400,levels=3 ,retim=True):
         res = None
         if not retim:
-            res = container(alpha=alpha,prior=type,method='map',levels=levels,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta/(2*np.pi)*360)
+            res = container(alpha=alpha,crimefree=self.crimefree,prior=type,method='map',levels=levels,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,theta=self.theta/(2*np.pi)*360)
         from matrices import totalmatrix
         wl = pywt.Wavelet(type)
         g = np.array(wl.dec_lo)
@@ -725,7 +727,7 @@ if __name__ == "__main__":
         np.random.seed(3)
         #theta = (0, 90, 50)
         theta = 50
-        t = tomography("shepp.png", 128, theta, 0.05, crimefree=True)
+        t = tomography("shepp.png", 64, theta, 0.05, crimefree=False,commonprefix='/results/')
         real = t.target()
         # t.saveresult(real)
         # sg = t.sinogram()
@@ -745,11 +747,13 @@ if __name__ == "__main__":
         # # tt = time.time()
         # #
         #r = t.map_wavelet(5)
-        res = t.hmcmc_cauchy(0.01, 230, 30, thinning=1, mapstart=True, retim=False)
-        #res = t.mwg_cauchy(0.01,20000,10000,thinning=10,mapstart=False,retim=False)
+        res = t.mwg_cauchy(0.01, 200, 100, thinning=10, mapstart=False, retim=False)
+        #res = t.hmcmc_cauchy(0.01, 230, 30, thinning=1, mapstart=True, retim=False)
+        t.saveresult(res)
+        #
         r = res.result
-        plt.plot(res.chain[5656,:])
-        plt.figure()
+        # plt.plot(res.chain[5656,:])
+        # plt.figure()
         print(t.difference(r))
         # r = t.map_cauchy(0.01,True)
 
