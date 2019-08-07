@@ -25,6 +25,15 @@ The _lhdev_ parameter refers to the sinogram measurement likelihood sigma. By de
 
 There are two ways to enter the  measurement angles: user can enter either one integer (which then is the number of angles between 0 and 180 degress) or three integers, which will refer the first angle, last angle and the number of angles between them, respectively.
 
+## Compilation
+The Cython files are compiled with the command
+~~~~
+python3 setup.py build\_ext --inplace
+~~~~
+It will produce two compiled library files into the current directory, _cyt_ and _matrices_. (i.e. in Linux _cyt.so_ and _matrices.so_). Then the library is ready to use.  _Cyt_-library contains functions for log-PDFs of different posteriors, their gradients and MCMC functions.
+_Matrices_-library contains functions for the Radon matrix operator and 2D Wavelet matrix operator construction. 
+
+
 ### Methods
 After the class is initialized, the calculations itself can be run. The names of methods are rather self-descriptive. The methods of the tomography class beginning with  with the word _map_ refer to MAP estimates with different priors, _mwg_-starting methods refer to CM estimation by Metropolis-within-Gibbs (SCAM) and _hmc_-beginning methods refer to CM estimation by Hamiltonian Monte Carlo. 
 
@@ -84,3 +93,6 @@ However, everything interesting for most users is within the _tomography_ class 
     
 - saveresult(result)
     - This is rather important function. It takes care of saving a given _container_ result object to a HDF5 file.
+    
+    
+### Example usage    

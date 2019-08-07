@@ -183,7 +183,7 @@ def  radonmatrix(size,theta,Nthreads=4):
         dt = 0
     else:
         dt = (theta[1]-theta[0])
-        
+         
     # One might comment out the first ray row or alternatively 
     # comment out the followinf five and comment the first one. Averaging four values
     # might lead to more realistic sinogram with large dimensions and angles and it would make the operator denser.
@@ -244,7 +244,7 @@ def  radonmatrix(size,theta,Nthreads=4):
     radonM = csc_matrix(radonM)
     
     return radonM 
-
+ 
 # Function which is called, when Radon operator matrix is constucted.
 @cython.boundscheck(False) 
 @cython.wraparound(False)

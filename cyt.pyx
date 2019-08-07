@@ -10,7 +10,7 @@ from libcpp.list cimport list as cpplist
 import time
 from tqdm import tqdm
 import sys
-
+ 
 # Class for passing extra arguments for functions.
 # M, Lx and Ly refer to matrices, y to a measurement vector, s2 to sigma squared. Variables a andb are used
 # as regularization parameters.  Logdensity is points to a given log-PDF function  and gradi to its gradient.
