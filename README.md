@@ -25,6 +25,28 @@ The _lhdev_ parameter refers to the sinogram measurement likelihood sigma. By de
 
 There are two ways to enter the  measurement angles: user can enter either one integer (which then is the number of angles between 0 and 180 degress) or three integers, which will refer the first angle, last angle and the number of angles between them, respectively.
 
+### Example usage
+For example, to initialize simulated sinogram measurement of the Shepp-Phantom image (64x64) with 59 angles and 5 percent noise without inverse crime, one shall run in the _main.py_:
+~~~~
+theta = 50
+t = tomography("shepp.png", 64, theta, 0.05, crimefree=True,commonprefix='/results/')
+~~~~
+
+Then one can reconstruct the image from the sinogram with SCAM method plot the CM estimate and save the result details to a HDF5 file to the '/results/' subdirectory in the current directory.
+~~~~
+ret = t.mwg_cauchy(0.01, 20000, 10000, thinning=10, mapstart=False, retim=False)
+t.saveresult(ret)
+plt.imshow(ret.result)
+plt.show()
+~~~~
+
+One can also obtain only a MAP estimate and just plot it:
+~~~~
+ret2 = t.map_cauchy(0.01)
+plt.imshow(ret2)
+plt.show()
+~~~~
+
 ## Compilation
 The Cython files are compiled with the command
 ~~~~
@@ -34,7 +56,7 @@ It will produce two compiled library files into the current directory, _cyt_ and
 _Matrices_-library contains functions for the Radon matrix operator and 2D Wavelet matrix operator construction. 
 
 
-### Methods
+## Methods
 After the class is initialized, the calculations itself can be run. The names of methods are rather self-descriptive. The methods of the tomography class beginning with  with the word _map_ refer to MAP estimates with different priors, _mwg_-starting methods refer to CM estimation by Metropolis-within-Gibbs (SCAM) and _hmc_-beginning methods refer to CM estimation by Hamiltonian Monte Carlo. 
 
 For all methods, the most important  parameter is the prior's regularization parameter. Depending on the prior, it can be selected also so that the reconstructions remain approximately the same even if the resolution of the image is increased. The second important parameter is technical. With the _retim_ parameter one can select what the methods actually return. The _retim_ is by default True for all methods, which means that the methods return only the reconstructed image. If the parameter is False, an instance of _container_ class is returned. The class can be feed as an argument to the _saveresult_ method, which then saves the result to a hdf5 file for later analysis.
@@ -96,24 +118,3 @@ However, everything interesting for most users is within the _tomography_ class 
     - This is rather important function. It takes care of saving a given _container_ result object to a HDF5 file.
     
     
-### Example usage
-For example, to initialize simulated sinogram measurement of the Shepp-Phantom image (64x64) with 59 angles and 5 percent noise without inverse crime, one shall run in the _main.py_:
-~~~~
-theta = 50
-t = tomography("shepp.png", 64, theta, 0.05, crimefree=True,commonprefix='/results/')
-~~~~
-
-Then one can reconstruct the image from the sinogram with SCAM method plot the CM estimate and save the result details to a HDF5 file to the '/results/' subdirectory in the current directory.
-~~~~
-ret = t.mwg_cauchy(0.01, 20000, 10000, thinning=10, mapstart=False, retim=False)
-t.saveresult(ret)
-plt.imshow(ret.result)
-plt.show()
-~~~~
-
-One can also obtain only a MAP estimate and just plot it:
-~~~~
-ret2 = t.map_cauchy(0.01)
-plt.imshow(ret2)
-plt.show()
-~~~~
