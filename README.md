@@ -29,16 +29,17 @@ There are two ways to enter the  measurement angles: user can enter either one i
 After the class is initialized, the calculations itself can be run. The names of methods are rather self-descriptive. The methods of the tomography class beginning with  with the word _map_ refer to MAP estimates with different priors, _mwg_-starting methods refer to CM estimation by Metropolis-within-Gibbs (SCAM) and _hmc_-beginning methods refer to CM estimation by Hamiltonian Monte Carlo. 
 
 For all methods, the most important  parameter is the prior's regularization parameter. Depending on the prior, it can be selected also so that the reconstructions remain approximately the same even if the resolution of the image is increased. The second important parameter is technical. With the _retim_ parameter one can select what the methods actually return. The _retim_ is by default True for all methods, which means that the methods return only the reconstructed image. If the parameter is False, an instance of _container_ class is returned. The class can be feed as an argument to the _saveresult_ method, which then saves the result to a hdf5 file for later analysis.
-The _container_ consists of attributes which are gone through when saving to the result file. The class has only one method in addition to the init, _finish_. An instance of this class  is supposed to be created when the calculation is started and the finish method is called when it's completed. This saves the time difference to one attribute.
+
+The _container_ consists of attributes which are iterated through when saving to the result file. The class has only one method in addition to the init, _finish_. An instance of this class  is supposed to be created when the calculation is started and the finish method is called when it's completed. This saves the execution time to one attribute.
 
 However, everything interesting for most users is within the _tomography_ class and its methods:
 
 - tomography.\_\_init\_\_filename, targetsize=128, itheta=50, noise=0.0,  commonprefix="", dimbig = 607, N\_thetabig=421, crimefree=False,lhdev=None)
-    - One might increase dimbig  and N\_thetabig from their default values, if the targetsize is near to 500.
+    - One might increase _dimbig_  and _N\_thetabig_ from their default values, if the _targetsize_ is near to 500.
     
 - map\_tikhonov( alpha=1.0, order=1,maxiter=400,retim=True)
-    - MAP function for Tikhonov regularization. Order means the order of the discrete derivative (1 or 2). 
-    - Maxiter parameter is the maximum number of minimization iteration rounds. Default value ensures that a resonable result is obtained within reasonable time. If the maxiter value is reached, one might increase it to ensure converge.
+    - MAP function for Tikhonov regularization. _Order_ means the order of the discrete derivative (1 or 2). 
+    - _Maxiter_ parameter is the maximum number of minimization iteration rounds. Default value ensures that a resonable result is obtained within reasonable time. If the maxiter value is reached, one might increase it to ensure converge.
 
 -  map\_tv( alpha=1.0, maxiter=400,retim=True)
     - MAP function for total variation regularization.
