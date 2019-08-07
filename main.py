@@ -728,10 +728,10 @@ if __name__ == "__main__":
         np.random.seed(3)
         #theta = (0, 90, 50)
         theta = 50
-        t = tomography("shepp.png", 64, theta, 0.05, crimefree=False,commonprefix='/results/')
+        t = tomography("shepp.png", 64, theta, 0.05, crimefree=True,commonprefix='/results/')
         real = t.target()
         # t.saveresult(real)
-        # sg = t.sinogram()
+        sg = t.sinogram()
         #t.sinogram()
 
         # t.normalizedsgram = t.radonww()

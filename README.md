@@ -28,7 +28,7 @@ There are two ways to enter the  measurement angles: user can enter either one i
 ## Compilation
 The Cython files are compiled with the command
 ~~~~
-python3 setup.py build\_ext --inplace
+python3 setup.py build_ext --inplace
 ~~~~
 It will produce two compiled library files into the current directory, _cyt_ and _matrices_. (i.e. in Linux _cyt.so_ and _matrices.so_). Then the library is ready to use.  _Cyt_-library contains functions for log-PDFs of different posteriors, their gradients and MCMC functions.
 _Matrices_-library contains functions for the Radon matrix operator and 2D Wavelet matrix operator construction. 
@@ -45,6 +45,7 @@ However, everything interesting for most users is within the _tomography_ class 
 
 - tomography.\_\_init\_\_filename, targetsize=128, itheta=50, noise=0.0,  commonprefix="", dimbig = 607, N\_thetabig=421, crimefree=False,lhdev=None)
     - One might increase _dimbig_  and _N\_thetabig_ from their default values, if the _targetsize_ is near to 500.
+    - _commonprefix_ is a relative directory to the _main.py_, where the result files are saved (i.e. /results/ means $(PWD)/results/). 
     
 - map\_tikhonov( alpha=1.0, order=1,maxiter=400,retim=True)
     - MAP function for Tikhonov regularization. _Order_ means the order of the discrete derivative (1 or 2). 
@@ -95,4 +96,24 @@ However, everything interesting for most users is within the _tomography_ class 
     - This is rather important function. It takes care of saving a given _container_ result object to a HDF5 file.
     
     
-### Example usage    
+### Example usage
+For example, to initialize simulated sinogram measurement of the Shepp-Phantom image (64x64) with 59 angles and 5 percent noise without inverse crime, one shall run in the _main.py_:
+~~~~
+theta = 50
+t = tomography("shepp.png", 64, theta, 0.05, crimefree=True,commonprefix='/results/')
+~~~~
+
+Then one can reconstruct the image from the sinogram with SCAM method plot the CM estimate and save the result details to a HDF5 file to the '/results/' subdirectory in the current directory.
+~~~~
+ret = t.mwg_cauchy(0.01, 20000, 10000, thinning=10, mapstart=False, retim=False)
+t.saveresult(ret)
+plt.imshow(ret.result)
+plt.show()
+~~~~
+
+One can also obtain only a MAP estimate and just plot it:
+~~~~
+ret2 = t.map_cauchy(0.01)
+plt.imshow(ret2)
+plt.show()
+~~~~
