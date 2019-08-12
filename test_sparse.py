@@ -24,6 +24,21 @@ from collections import namedtuple
 import cairosvg
 import pathlib
 
+import h5py
+
+dir  = 'results/'
+fn = os.listdir(dir)
+fn = sorted(fn)
+fn = fn[-1]
+f = h5py.File(dir + fn, 'r')
+keys = list(f.keys())
+for i in range(keys.__len__()):
+    h = np.array(f[keys[i]])
+    print(keys[i],h)
+f.close()
+
+exit(0)
+
 class container:
     def __init__(self,target=np.zeros((20,20)),l1=-1.0,l2=-1.0,result=np.zeros((2,2)),noise=-1.0,imagefilename='None',targetsize=0,theta=0,method='None',prior='None',sampnum=0,adaptnum=0,alpha=0,globalprefix=""):
         self.spent = time.time()

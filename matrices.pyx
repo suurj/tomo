@@ -187,7 +187,7 @@ def  radonmatrix(size,theta,Nthreads=4):
     # There are three options how a Radon operator is made. One might comment in the first ray row, the five rows after it  or alternatively 
     # the last three ones. Averaging four line integral values
     # might lead to more realistic sinogram with large dimensions and angles and it would make the operator denser.
-    # However, the averaging might make the sinogram perhaps worse with sparse angles (at least the angle averaging should be reconsidered one should use rhoo
+    # However, the averaging might make the sinogram perhaps worse with sparse angles (at least the angle averaging should be skipped and one should use rhoo
     # averaging only, i.e. comment in the last three ray rows).
     # See Peter Thoft's PhD thesis above
     # (First order pixel oriented interpolation).
@@ -198,7 +198,7 @@ def  radonmatrix(size,theta,Nthreads=4):
                 tt = -(tmin + t*dt)
                 for n in range (0,N):
                     for m in range( 0,M):
-                        #ray = dx/2.0 * gs(2.0*(pmin+r*dp -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
+                        ray = dx/2.0 * gs(2.0*(pmin+r*dp -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
                         
                         #ray = dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt+dt/4.0)-(ymin+n*dy)*sin(tt+dt/4.0) )/dx,tt+dt/4.0)
                         #ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
@@ -206,9 +206,9 @@ def  radonmatrix(size,theta,Nthreads=4):
                         #ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt-dt/4.0)-(ymin+n*dy)*sin(tt-dt/4.0) )/dx,tt-dt/4.0)
                         #ray = ray/4.0
                         
-                        ray = dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
-                        ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
-                        ray = ray/2.0
+                        #ray = dx/2.0 * gs(2.0*(pmin+r*dp+dp/4.0 -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
+                        #ray = ray + dx/2.0 * gs(2.0*(pmin+r*dp-dp/4.0 -(xmin+m*dx)*cos(tt)-(ymin+n*dy)*sin(tt) )/dx,tt)
+                        #ray = ray/2.0
                         
                         if(ray > 0.0):
                             th = thid()
@@ -217,7 +217,7 @@ def  radonmatrix(size,theta,Nthreads=4):
                             data[th].push_back(ray) 
 
             
-    print("Radon matrix was constructed in " + str(time.time()-start) + " seconds")     
+    print("Radon transform matrix operator was constructed in " + str(time.time()-start) + " seconds.")     
      
     cdef int Nel = 0
     for i in range(0,Nth):

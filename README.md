@@ -79,8 +79,8 @@ However, everything interesting for most users is within the _tomography_ class 
 - map\_cauchy(alpha=0.05, maxiter=400,retim=True)
     - MAP function for Cauchy difference prior. Default alpha value of 0.05 seems to have rather strong effect.
     
-- map\_wavelet(alpha=1.0, type='haar', maxiter=400,levels=3 ,retim=True):
-    - MAP function for total wavelet regularization. Default DWT level is 3, but might be increased for rather big images. On the other hand, 64x64, might be better with 2 levels only.
+- map\_wavelet(alpha=1.0, type='haar', maxiter=400,levels=None ,retim=True):
+    - MAP function for total wavelet regularization. Default DWT level is None, which means that floor(log2(targetimagedim)-1) levels are used.
     
 - hmcmc\_tikhonov( alpha, M=100, Madapt=20, order=1,mapstart=False,thinning=1,retim=True)
     - HMC function for CM estimation with Tikhonov regularization. Since MAP and CM should converge to the same solution with Gaussian priors, this function is just for testing purposes and thus not interesting. 
@@ -95,7 +95,7 @@ However, everything interesting for most users is within the _tomography_ class 
 - hmcmc\_cauchy(alpha, M=100, Madapt=20,thinning=1,mapstart=True,retim=True)
     - HMC function for CM estimation with Cauchy difference prior.
     
-- hmcmc\wavelet( alpha, M=100, Madapt=20, type='haar',levels=3,mapstart=False,thinning=1,retim=True)
+- hmcmc\wavelet( alpha, M=100, Madapt=20, type='haar',levels=None,mapstart=False,thinning=1,retim=True)
     - HMC function for CM estimation with Wavelet prior.    
     
 -  mwg\_tv(alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True)
@@ -105,7 +105,7 @@ However, everything interesting for most users is within the _tomography_ class 
 -  mwg\_cauchy( alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True)
     - Metropolis-within-Gibbs (SCAM) function for CM estimation with Cauchy difference prior.
     
--  mwg\_wavelet( alpha, M=10000, Madapt=1000,type='haar',levels=3,mapstart=False,thinning=10,retim=True)
+-  mwg\_wavelet( alpha, M=10000, Madapt=1000,type='haar',levels=None,mapstart=False,thinning=10,retim=True)
     - Metropolis-within-Gibbs (SCAM) function for CM estimation with Wavelet prior.    
 
 - sinogram()
