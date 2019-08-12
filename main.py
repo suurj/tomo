@@ -665,6 +665,7 @@ class tomography:
                     value = "None"
                 if (isinstance(value, np.ndarray)):
                     compression = 'gzip'
+                    value = value.astype(np.float32)
                 else:
                     compression = None
                 f.create_dataset(key, data=value, compression=compression)
@@ -731,9 +732,24 @@ if __name__ == "__main__":
 
     # If we do not care the command line.
     else:
-        tikhoalpha = {64: 12, 128: 12, 256: 12, 512: 12}
+
+        t = tomography("shepp.png", 128, 50, 0.01, crimefree=True, commonprefix='/results/')
+        alphas = np.linspace(1,20,10)
+        L1 = []
+        L2 = []
+        for alpha in alphas:
+            res = t.map_tikhonov(alpha, retim=False)
+            L1.append(res.l1)
+            L2.append(res.l2)
+
+        plt.plot(np.array(alphas),np.array(L1),'r')
+        plt.plot(np.array(alphas), np.array(L2),'b')
+        plt.show()
+        exit(0)
+
+        tikhoalpha = {64: 7.5, 128: 7.5, 256: 10, 512: 7.5}
         tvalpha = {64: 3, 128: 3, 256: 3, 512: 3}
-        cauchyalpha = {64: 0.02, 128: 0.02, 256: 0.02, 512: 0.02}
+        cauchyalpha = {64: 0.025, 128: 0.025, 256: 0.025, 512: 0.025}
         haaralpha = {64: 5, 128: 5, 256: 5, 512: 5}
 
         angles = (15,45,90,(0,45,15),(0,45,45),(0,45,90))
