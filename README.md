@@ -34,11 +34,12 @@ t = tomography("shepp.png", 64, theta, 0.05, crimefree=True,commonprefix='/resul
 
 Then one can reconstruct the image from the sinogram with SCAM method plot the CM estimate and save the result details to a HDF5 file to the '/results/' subdirectory in the current directory.
 ~~~~
-ret = t.mwg_cauchy(0.01, 20000, 10000, thinning=10, mapstart=False, retim=False)
+ret = t.mwg_tv(2.5, 20000, 10000, thinning=10, mapstart=False, retim=False)
 t.saveresult(ret)
 plt.imshow(ret.result)
 plt.show()
 ~~~~
+![TV prior reconstruction.](https://raw.githubusercontent.com/suurj/tomo/master/tv.png)
 
 One can also obtain only a MAP estimate and just plot it:
 ~~~~
@@ -46,6 +47,7 @@ ret2 = t.map_cauchy(0.01)
 plt.imshow(ret2)
 plt.show()
 ~~~~
+![Cauchy difference prior reconstruction.](https://raw.githubusercontent.com/suurj/tomo/master/cauchy.png)
 
 ## Compilation
 The Cython files are compiled with the command
@@ -117,4 +119,4 @@ However, everything interesting for most users is within the _tomography_ class 
 - saveresult(result)
     - This is rather important function. It takes care of saving a given _container_ result object to a HDF5 file.
     
-    
+
