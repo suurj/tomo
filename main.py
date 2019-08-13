@@ -386,6 +386,7 @@ class tomography:
             x0 = x0 + 0.01*np.random.rand(self.dim*self.dim,1)
         else:
             x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+        print("Running HMC for Tikhonov prior.")
         solution,chain = hmc(M, x0, self.Q, Madapt, de=0.651, gamma=0.05, t0=10.0, kappa=0.75, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -500,7 +501,7 @@ class tomography:
             x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
         else:
             x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
-        print("Running MAP estimate for Besov prior (" + type + ' '  + str(levels) + ').' )
+        print("Running HMC for Besov prior (" + type + ' '  + str(levels) + ').' )
         solution,chain = hmc(M, x0, self.Q, Madapt, de=0.6, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -611,7 +612,7 @@ class tomography:
             x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
         else:
             x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
-        print("Running MAP estimate for Besov prior (" + type + ' '  + str(levels) + ').' )
+        print("Running MwG MCMC for Besov prior (" + type + ' '  + str(levels) + ').' )
         solution,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -673,6 +674,9 @@ class tomography:
 
 
 if __name__ == "__main__":
+    import os
+    os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--file-name', default="shepp.png", type=str, help='Image filename. Default=shepp.png')
     parser.add_argument('--targetsize', default=64, type=int, help='Input image is scaled to this size. Default=64')
