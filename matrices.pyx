@@ -12,7 +12,7 @@ from libcpp.vector cimport vector
 import time
 from cython.parallel import threadid as thid
 from libc.stdlib cimport malloc 
-
+ 
 
 # Calculate total 2D DWT matrix. The matrix must operate to a row-major order vectorized image.
 # This is based on the following paper: 

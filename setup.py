@@ -6,7 +6,7 @@ import numpy
 
 setup(
     ext_modules = cythonize([Extension("cyt",sources=["cyt.pyx"],extra_link_args=["-O3","-fopenmp"],language="c++",extra_compile_args=["-O3", "-march=native","-fopenmp"],include_dirs=[numpy.get_include()]),
-                            Extension("matrices",sources=["matrices.pyx"],extra_link_args=["-O3","-fopenmp"],language="c++",extra_compile_args=["-O3", "-march=native","-fopenmp"])])
+                            Extension("matrices",sources=["matrices.pyx"],extra_link_args=["-O3","-fopenmp"],language="c++",extra_compile_args=["-O3", "-march=native","-fopenmp"],include_dirs=[numpy.get_include()])])
     
 )
 #setup(

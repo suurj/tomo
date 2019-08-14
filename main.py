@@ -125,8 +125,11 @@ class tomography:
             raise Exception('Invalid angle input.')
 
         if not os.path.isfile(fname):
-            from matrices import radonmatrix
+            path = os.path.dirname(os.path.abspath(fname))
+            if not os.path.exists(path):
+                os.makedirs(path)
 
+            from matrices import radonmatrix
             self.radonoperator = radonmatrix(self.dim, self.theta)
             sp.save_npz(fname, self.radonoperator)
 
