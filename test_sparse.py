@@ -24,18 +24,40 @@ from collections import namedtuple
 import cairosvg
 import pathlib
 
-import h5py
+from matplotlib import rc
+#rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
+## for Palatino and other serif fonts use:
+#rc('font',**{'family':'serif','serif':['Palatino']})
+rc('text', usetex=True)
+plt.rcParams['text.latex.unicode'] = True
+plt.rcParams['image.cmap'] ='gray'
+rc('font', family='serif')
 
-dir  = 'results/'
-fn = os.listdir(dir)
-fn = sorted(fn)
-fn = fn[-1]
-f = h5py.File(dir + fn, 'r')
-keys = list(f.keys())
-for i in range(keys.__len__()):
-    h = np.array(f[keys[i]])
-    print(keys[i],h)
-f.close()
+img = imread("drawing.png", as_gray=True)
+##rr=radon(img, np.linspace(0,180,280), circle=False)
+
+fig, ax = plt.subplots()
+plt.imshow(img, interpolation='bilinear', aspect='auto',extent=[-1, 1, -1,1])
+#[0, 180, np.sqrt(2), -np.sqrt(2)]
+#ax.set_xlabel(r'time (s)',fontsize=12)
+#ax.set_ylabel(r'Velocity', fontsize=12)
+#ax.set_title(r'\TeX\ is Number $\displaystyle\sum_{n=1}^\infty'
+#             r'\frac{-e^{i\pi}}{2^n}$!', fontsize=12, color='r')
+plt.show()
+
+
+# import h5py
+#
+# dir  = 'results/'
+# fn = os.listdir(dir)
+# fn = sorted(fn)
+# fn = fn[-1]
+# f = h5py.File(dir + fn, 'r')
+# keys = list(f.keys())
+# for i in range(keys.__len__()):
+#     h = np.array(f[keys[i]])
+#     print(keys[i],h)
+# f.close()
 
 exit(0)
 

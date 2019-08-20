@@ -360,7 +360,7 @@ class tomography:
     def hmcmc_tikhonov(self, alpha, M=100, Madapt=20, order=1,mapstart=False,thinning=1,retim=True):
         res = None
         if not retim:
-            res = container(totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tikhonov',method='hmc',levels=order,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tikhonov',method='hmc',levels=order,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from cyt import hmc
         if (order == 2):
             regvalues = np.array([2, -1, -1, -1, -1])
@@ -402,7 +402,7 @@ class tomography:
     def hmcmc_tv(self, alpha, M=100, Madapt=20,mapstart=False,thinning=1,retim=True):
         res = None
         if not retim:
-            res = container(totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method='hmc',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method='hmc',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from cyt import hmc
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
@@ -440,7 +440,7 @@ class tomography:
     def hmcmc_cauchy(self, alpha, M=100, Madapt=20,thinning=1,mapstart=True,retim=True):
         res = None
         if not retim:
-            res = container(totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='hmc',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='hmc',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from cyt import hmc
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
@@ -480,7 +480,7 @@ class tomography:
         if (levels is None):
             levels = int(np.floor(np.log2(self.dim))-1)
         if not retim:
-            res = container(totaliternum=M,adaptnum=Madapt,levels=levels,alpha=alpha,prior=type,method='hmc',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,levels=levels,alpha=alpha,prior=type,method='hmc',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from matrices import totalmatrix
         from cyt import hmc
         wl = pywt.Wavelet(type)
@@ -517,7 +517,7 @@ class tomography:
     def mwg_tv(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True):
         res = None
         if not retim:
-            res = container(totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from cyt import mwg_tv as mwgt
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
@@ -554,7 +554,7 @@ class tomography:
     def mwg_cauchy(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True):
         res = None
         if not retim:
-            res = container(totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from cyt import mwg_cauchy as mwgc
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
@@ -593,7 +593,7 @@ class tomography:
         if (levels is None):
             levels = int(np.floor(np.log2(self.dim))-1)
         if not retim:
-            res = container(totaliternum=M,levels=levels,adaptnum=Madapt,alpha=alpha,prior=type,method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+            res = container(crimefree=self.crimefree,totaliternum=M,levels=levels,adaptnum=Madapt,alpha=alpha,prior=type,method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from matrices import totalmatrix
         from cyt import mwg_tv as mwgt
         wl = pywt.Wavelet(type)
