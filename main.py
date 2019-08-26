@@ -739,64 +739,82 @@ if __name__ == "__main__":
 
     # If we do not care the command line.
     else:
+        from collections import defaultdict
+        class NestedDefaultDict(defaultdict):
+            def __init__(self, *args, **kwargs):
+                super(NestedDefaultDict, self).__init__(NestedDefaultDict, *args, **kwargs)
 
-        t = tomography("shepp.png", 128, 50, 0.01, crimefree=True, commonprefix='/results/')
-        alphas = np.linspace(1,20,10)
-        L1 = []
-        L2 = []
-        for alpha in alphas:
-            res = t.map_tikhonov(alpha, retim=False)
-            L1.append(res.l1)
-            L2.append(res.l2)
+            def __repr__(self):
+                return repr(dict(self))
 
-        plt.plot(np.array(alphas),np.array(L1),'r')
-        plt.plot(np.array(alphas), np.array(L2),'b')
-        plt.show()
+        tikhoalpha = NestedDefaultDict()
+        angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),
+                  'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
+
+        noises = (0.01, 0.05, 0.1)
+        sizes = (64, 128, 256, 512)
+        alphas = np.linspace(0.5,25,15)
+        for size in sizes:
+            for angletype,angle in angles.items():
+                    for noise in noises:
+                        bestl2 = np.Inf
+                        best = 0
+                        for alpha in alphas:
+                            t = tomography("shepp.png", size, angle, noise, crimefree=False, commonprefix='/results/')
+                            res = t.map_tikhonov(alpha, retim=False,maxiter=150)
+                            if (res.l2 < bestl2):
+                                best = alpha
+                                bestl2 = res.l2
+                        tikhoalpha[angletype][size][noise] = best
+
+        print(tikhoalpha)
+        #plt.plot(np.array(alphas), np.array(L2),'b')
+        #plt.show()
         exit(0)
 
-        tikhoalpha = {64: 7.5, 128: 7.5, 256: 10, 512: 7.5}
-        tvalpha = {64: 3, 128: 3, 256: 3, 512: 3}
-        cauchyalpha = {64: 0.025, 128: 0.025, 256: 0.025, 512: 0.025}
-        haaralpha = {64: 5, 128: 5, 256: 5, 512: 5}
+        tikhoalpha = {'sparsestwhole': {64: {0.01: 12.75, 0.05: 5.75, 0.1: 4.0}, 128: {0.01: 2.25, 0.05: 7.5, 0.1: 9.25}, 256: {0.01: 4.0, 0.05: 9.25, 0.1: 4.0}, 512: {0.01: 7.5, 0.05: 9.25, 0.1: 5.75}}, 'sparsewhole': {64: {0.01: 7.5, 0.05: 5.75, 0.1: 5.75}, 128: {0.01: 14.5, 0.05: 7.5, 0.1: 7.5}, 256: {0.01: 16.25, 0.05: 7.5, 0.1: 5.75}, 512: {0.01: 25.0, 0.05: 11.0, 0.1: 7.5}}, 'whole': {64: {0.01: 7.5, 0.05: 9.25, 0.1: 7.5}, 128: {0.01: 14.5, 0.05: 11.0, 0.1: 7.5}, 256: {0.01: 21.5, 0.05: 11.0, 0.1: 7.5}, 512: {0.01: 25.0, 0.05: 11.0, 0.1: 9.25}}, 'sparsestlimited': {64: {0.01: 16.25, 0.05: 7.5, 0.1: 5.75}, 128: {0.01: 9.25, 0.05: 4.0, 0.1: 9.25}, 256: {0.01: 14.5, 0.05: 9.25, 0.1: 11.0}, 512: {0.01: 16.25, 0.05: 18.0, 0.1: 11.0}}, 'sparselimited': {64: {0.01: 7.5, 0.05: 5.75, 0.1: 7.5}, 128: {0.01: 12.75, 0.05: 9.25, 0.1: 7.5}, 256: {0.01: 21.5, 0.05: 9.25, 0.1: 14.5}, 512: {0.01: 19.75, 0.05: 14.5, 0.1: 16.25}}, 'limited': {64: {0.01: 7.5, 0.05: 4.0, 0.1: 11.0}, 128: {0.01: 11.0, 0.05: 11.0, 0.1: 9.25}, 256: {0.01: 16.25, 0.05: 19.75, 0.1: 16.25}, 512: {0.01: 23.25, 0.05: 14.5, 0.1: 12.75}}}
+        tvalpha = {'sparsestwhole': {64: {0.01: 12.75, 0.05: 5.75, 0.1: 4.0}, 128: {0.01: 2.25, 0.05: 7.5, 0.1: 9.25}, 256: {0.01: 4.0, 0.05: 9.25, 0.1: 4.0}, 512: {0.01: 7.5, 0.05: 9.25, 0.1: 5.75}}, 'sparsewhole': {64: {0.01: 7.5, 0.05: 5.75, 0.1: 5.75}, 128: {0.01: 14.5, 0.05: 7.5, 0.1: 7.5}, 256: {0.01: 16.25, 0.05: 7.5, 0.1: 5.75}, 512: {0.01: 25.0, 0.05: 11.0, 0.1: 7.5}}, 'whole': {64: {0.01: 7.5, 0.05: 9.25, 0.1: 7.5}, 128: {0.01: 14.5, 0.05: 11.0, 0.1: 7.5}, 256: {0.01: 21.5, 0.05: 11.0, 0.1: 7.5}, 512: {0.01: 25.0, 0.05: 11.0, 0.1: 9.25}}, 'sparsestlimited': {64: {0.01: 16.25, 0.05: 7.5, 0.1: 5.75}, 128: {0.01: 9.25, 0.05: 4.0, 0.1: 9.25}, 256: {0.01: 14.5, 0.05: 9.25, 0.1: 11.0}, 512: {0.01: 16.25, 0.05: 18.0, 0.1: 11.0}}, 'sparselimited': {64: {0.01: 7.5, 0.05: 5.75, 0.1: 7.5}, 128: {0.01: 12.75, 0.05: 9.25, 0.1: 7.5}, 256: {0.01: 21.5, 0.05: 9.25, 0.1: 14.5}, 512: {0.01: 19.75, 0.05: 14.5, 0.1: 16.25}}, 'limited': {64: {0.01: 7.5, 0.05: 4.0, 0.1: 11.0}, 128: {0.01: 11.0, 0.05: 11.0, 0.1: 9.25}, 256: {0.01: 16.25, 0.05: 19.75, 0.1: 16.25}, 512: {0.01: 23.25, 0.05: 14.5, 0.1: 12.75}}}
+        cauchyalpha = {'sparsestwhole': {64: {0.01: 12.75, 0.05: 5.75, 0.1: 4.0}, 128: {0.01: 2.25, 0.05: 7.5, 0.1: 9.25}, 256: {0.01: 4.0, 0.05: 9.25, 0.1: 4.0}, 512: {0.01: 7.5, 0.05: 9.25, 0.1: 5.75}}, 'sparsewhole': {64: {0.01: 7.5, 0.05: 5.75, 0.1: 5.75}, 128: {0.01: 14.5, 0.05: 7.5, 0.1: 7.5}, 256: {0.01: 16.25, 0.05: 7.5, 0.1: 5.75}, 512: {0.01: 25.0, 0.05: 11.0, 0.1: 7.5}}, 'whole': {64: {0.01: 7.5, 0.05: 9.25, 0.1: 7.5}, 128: {0.01: 14.5, 0.05: 11.0, 0.1: 7.5}, 256: {0.01: 21.5, 0.05: 11.0, 0.1: 7.5}, 512: {0.01: 25.0, 0.05: 11.0, 0.1: 9.25}}, 'sparsestlimited': {64: {0.01: 16.25, 0.05: 7.5, 0.1: 5.75}, 128: {0.01: 9.25, 0.05: 4.0, 0.1: 9.25}, 256: {0.01: 14.5, 0.05: 9.25, 0.1: 11.0}, 512: {0.01: 16.25, 0.05: 18.0, 0.1: 11.0}}, 'sparselimited': {64: {0.01: 7.5, 0.05: 5.75, 0.1: 7.5}, 128: {0.01: 12.75, 0.05: 9.25, 0.1: 7.5}, 256: {0.01: 21.5, 0.05: 9.25, 0.1: 14.5}, 512: {0.01: 19.75, 0.05: 14.5, 0.1: 16.25}}, 'limited': {64: {0.01: 7.5, 0.05: 4.0, 0.1: 11.0}, 128: {0.01: 11.0, 0.05: 11.0, 0.1: 9.25}, 256: {0.01: 16.25, 0.05: 19.75, 0.1: 16.25}, 512: {0.01: 23.25, 0.05: 14.5, 0.1: 12.75}}}
+        haaralpha = {'sparsestwhole': {64: {0.01: 12.75, 0.05: 5.75, 0.1: 4.0}, 128: {0.01: 2.25, 0.05: 7.5, 0.1: 9.25}, 256: {0.01: 4.0, 0.05: 9.25, 0.1: 4.0}, 512: {0.01: 7.5, 0.05: 9.25, 0.1: 5.75}}, 'sparsewhole': {64: {0.01: 7.5, 0.05: 5.75, 0.1: 5.75}, 128: {0.01: 14.5, 0.05: 7.5, 0.1: 7.5}, 256: {0.01: 16.25, 0.05: 7.5, 0.1: 5.75}, 512: {0.01: 25.0, 0.05: 11.0, 0.1: 7.5}}, 'whole': {64: {0.01: 7.5, 0.05: 9.25, 0.1: 7.5}, 128: {0.01: 14.5, 0.05: 11.0, 0.1: 7.5}, 256: {0.01: 21.5, 0.05: 11.0, 0.1: 7.5}, 512: {0.01: 25.0, 0.05: 11.0, 0.1: 9.25}}, 'sparsestlimited': {64: {0.01: 16.25, 0.05: 7.5, 0.1: 5.75}, 128: {0.01: 9.25, 0.05: 4.0, 0.1: 9.25}, 256: {0.01: 14.5, 0.05: 9.25, 0.1: 11.0}, 512: {0.01: 16.25, 0.05: 18.0, 0.1: 11.0}}, 'sparselimited': {64: {0.01: 7.5, 0.05: 5.75, 0.1: 7.5}, 128: {0.01: 12.75, 0.05: 9.25, 0.1: 7.5}, 256: {0.01: 21.5, 0.05: 9.25, 0.1: 14.5}, 512: {0.01: 19.75, 0.05: 14.5, 0.1: 16.25}}, 'limited': {64: {0.01: 7.5, 0.05: 4.0, 0.1: 11.0}, 128: {0.01: 11.0, 0.05: 11.0, 0.1: 9.25}, 256: {0.01: 16.25, 0.05: 19.75, 0.1: 16.25}, 512: {0.01: 23.25, 0.05: 14.5, 0.1: 12.75}}}
 
-        angles = (15,45,90,(0,45,15),(0,45,45),(0,45,90))
+        angles = {'sparsestwhole':15,'sparsewhole':45,'whole':90,'sparsestlimited':(0,45,15),'sparselimited':(0,45,45),'limited':(0,45,90)}
         noises = (0.01,0.05,0.1)
         sizes = (64,128,256,512)
 
         for _ in range(0,10):
             for size in sizes:
-                for theta in angles:
+                for angletype,theta in angles.items():
                     for noise in noises:
                         t = tomography("shepp.png", size, theta, noise, crimefree=True, commonprefix='/results/')
 
-                        res = t.map_tikhonov(tikhoalpha[size], order=1, retim=False)
+                        res = t.map_tikhonov(tikhoalpha[angletype][size][noise], order=1, retim=False)
                         t.saveresult(res)
 
-                        res = t.map_tv(tvalpha[size] ,retim=False)
+                        res = t.map_tv(tvalpha[angletype][size][noise] ,retim=False)
                         t.saveresult(res)
 
-                        res = t.map_cauchy(cauchyalpha[size], retim=False)
+                        res = t.map_cauchy(cauchyalpha[angletype][size][noise], retim=False)
                         t.saveresult(res)
 
-                        res = t.map_wavelet(haaralpha[size], type='haar',retim=False)
+                        res = t.map_wavelet(haaralpha[angletype][size][noise], type='haar',retim=False)
                         t.saveresult(res)
 
-                        res = t.mwg_tv(tvalpha[size], mapstart=True,M=20000,Madapt=5000, retim=False,thinning=100)
+                        res = t.mwg_tv(tvalpha[angletype][size][noise], mapstart=True,M=20000,Madapt=5000, retim=False,thinning=100)
                         t.saveresult(res)
 
-                        res = t.mwg_cauchy(cauchyalpha[size],mapstart=True, M=20000, Madapt=5000, retim=False,thinning=100)
+                        res = t.mwg_cauchy(cauchyalpha[angletype][size][noise],mapstart=True, M=20000, Madapt=5000, retim=False,thinning=100)
                         t.saveresult(res)
 
-                        res = t.mwg_wavelet(haaralpha[size], mapstart=True, type='haar',M=20000, Madapt=5000, retim=False,thinning=100)
+                        res = t.mwg_wavelet(haaralpha[angletype][size][noise], mapstart=True, type='haar',M=20000, Madapt=5000, retim=False,thinning=100)
                         t.saveresult(res)
 
-                        res = t.hmcmc_tv(tvalpha[size], mapstart=True, M=350, Madapt=50, retim=False,thinning=2)
+                        res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=2)
                         t.saveresult(res)
 
-                        res = t.hmcmc_cauchy(cauchyalpha[size], mapstart=True, M=350, Madapt=50, retim=False,thinning=2)
+                        res = t.hmcmc_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=2)
                         t.saveresult(res)
 
-                        res = t.hmcmc_wavelet(haaralpha[size], mapstart=True, M=350, Madapt=50, retim=False,thinning=2)
+                        res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=2)
                         t.saveresult(res)
 
 
