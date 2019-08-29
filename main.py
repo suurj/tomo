@@ -741,6 +741,7 @@ if __name__ == "__main__":
     else:
         #https://stackoverflow.com/questions/19189274/nested-defaultdict-of-defaultdict
         from collections import defaultdict
+        import json
         class NestedDefaultDict(defaultdict):
             def __init__(self, *args, **kwargs):
                 super(NestedDefaultDict, self).__init__(NestedDefaultDict, *args, **kwargs)
@@ -748,29 +749,102 @@ if __name__ == "__main__":
             def __repr__(self):
                 return repr(dict(self))
 
-        tikhoalpha = NestedDefaultDict()
         angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),
                   'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
-
         noises = (0.01, 0.05, 0.1)
         sizes = (64, 128, 256, 512)
-        alphas = np.linspace(0.5,25,15)
+
+        alphas = np.linspace(0.5,30,15)
+        tikhoalpha = NestedDefaultDict()
         for size in sizes:
             for angletype,angle in angles.items():
                     for noise in noises:
                         bestl2 = np.Inf
                         best = 0
                         for alpha in alphas:
-                            t = tomography("shepp.png", size, angle, noise, crimefree=False, commonprefix='/results/')
-                            res = t.map_tikhonov(alpha, retim=False,maxiter=150)
-                            if (res.l2 < bestl2):
+                            t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                            t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                            res = t.map_tikhonov(alpha, retim=False,maxiter=200)
+                            res2 = t2.map_tikhonov(alpha, retim=False, maxiter=200)
+                            if ((res.l2 + res2.l2)/2.0 < bestl2):
                                 best = alpha
-                                bestl2 = res.l2
+                                bestl2 = (res.l2 + res2.l2)/2.0
                         tikhoalpha[angletype][size][noise] = best
 
+        jsontik = json.dumps(tikhoalpha)
+        f = open("tikhonov.json", "w")
+        f.write(jsontik)
+        f.close()
         print(tikhoalpha)
-        #plt.plot(np.array(alphas), np.array(L2),'b')
-        #plt.show()
+
+        alphas = np.linspace(0.1, 25, 15)
+        tvalpha = NestedDefaultDict()
+        for size in sizes:
+            for angletype, angle in angles.items():
+                for noise in noises:
+                    bestl2 = np.Inf
+                    best = 0
+                    for alpha in alphas:
+                        t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                        t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                        res = t.map_tv(alpha, retim=False, maxiter=200)
+                        res2 = t2.map_tv(alpha, retim=False, maxiter=200)
+                        if ((res.l2 + res2.l2) / 2.0 < bestl2):
+                            best = alpha
+                            bestl2 = (res.l2 + res2.l2) / 2.0
+                    tvalpha[angletype][size][noise] = best
+
+        jsontv = json.dumps(tvalpha)
+        f = open("tv.json", "w")
+        f.write(jsontv)
+        f.close()
+        print(tvalpha)
+
+        alphas = np.linspace(0.005, 0.3, 18)
+        cauchyalpha = NestedDefaultDict()
+        for size in sizes:
+            for angletype, angle in angles.items():
+                for noise in noises:
+                    bestl2 = np.Inf
+                    best = 0
+                    for alpha in alphas:
+                        t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                        t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                        res = t.map_cauchy(alpha, retim=False, maxiter=200)
+                        res2 = t2.map_cauchy(alpha, retim=False, maxiter=200)
+                        if ((res.l2 + res2.l2) / 2.0 < bestl2):
+                            best = alpha
+                            bestl2 = (res.l2 + res2.l2) / 2.0
+                    cauchyalpha[angletype][size][noise] = best
+
+        jsoncau= json.dumps(cauchyalpha)
+        f = open("cauchy.json", "w")
+        f.write(jsoncau)
+        f.close()
+        print(cauchyalpha)
+
+        alphas = np.linspace(0.1, 30, 15)
+        haaralpha = NestedDefaultDict()
+        for size in sizes:
+            for angletype, angle in angles.items():
+                for noise in noises:
+                    bestl2 = np.Inf
+                    best = 0
+                    for alpha in alphas:
+                        t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                        t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                        res = t.map_wavelet(alpha, type='haar', retim=False, maxiter=200)
+                        res2 = t2.map_wavelet(alpha, type='haar', retim=False, maxiter=200)
+                        if ((res.l2 + res2.l2) / 2.0 < bestl2):
+                            best = alpha
+                            bestl2 = (res.l2 + res2.l2) / 2.0
+                    haaralpha[angletype][size][noise] = best
+
+        jsonhaar = json.dumps(haaralpha)
+        f = open("haar.json", "w")
+        f.write(jsonhaar)
+        f.close()
+        print(haaralpha)
         exit(0)
 
         #Only Tikhonov for now.

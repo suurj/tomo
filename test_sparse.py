@@ -24,6 +24,25 @@ from collections import namedtuple
 import cairosvg
 import pathlib
 
+from collections import defaultdict
+class NestedDefaultDict(defaultdict):
+        def __init__(self, *args, **kwargs):
+            super(NestedDefaultDict, self).__init__(NestedDefaultDict, *args, **kwargs)
+
+        def __repr__(self):
+            return repr(dict(self))
+
+
+rr=NestedDefaultDict()
+rr['3']['koe'][22] = 4.6
+import json
+json = json.dumps(rr)
+f = open("dict.json","w")
+f.write(json)
+f.close()
+exit(0)
+
+
 from matplotlib import rc
 #rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 ## for Palatino and other serif fonts use:
