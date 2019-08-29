@@ -761,9 +761,9 @@ if __name__ == "__main__":
                     for noise in noises:
                         bestl2 = np.Inf
                         best = 0
+                        t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                        t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
                         for alpha in alphas:
-                            t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                            t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
                             res = t.map_tikhonov(alpha, retim=False,maxiter=200)
                             res2 = t2.map_tikhonov(alpha, retim=False, maxiter=200)
                             if ((res.l2 + res2.l2)/2.0 < bestl2):
@@ -784,9 +784,9 @@ if __name__ == "__main__":
                 for noise in noises:
                     bestl2 = np.Inf
                     best = 0
+                    t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
                     for alpha in alphas:
-                        t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                        t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
                         res = t.map_tv(alpha, retim=False, maxiter=200)
                         res2 = t2.map_tv(alpha, retim=False, maxiter=200)
                         if ((res.l2 + res2.l2) / 2.0 < bestl2):
@@ -807,9 +807,9 @@ if __name__ == "__main__":
                 for noise in noises:
                     bestl2 = np.Inf
                     best = 0
+                    t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
                     for alpha in alphas:
-                        t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                        t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
                         res = t.map_cauchy(alpha, retim=False, maxiter=200)
                         res2 = t2.map_cauchy(alpha, retim=False, maxiter=200)
                         if ((res.l2 + res2.l2) / 2.0 < bestl2):
@@ -830,9 +830,9 @@ if __name__ == "__main__":
                 for noise in noises:
                     bestl2 = np.Inf
                     best = 0
+                    t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
                     for alpha in alphas:
-                        t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                        t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
                         res = t.map_wavelet(alpha, type='haar', retim=False, maxiter=200)
                         res2 = t2.map_wavelet(alpha, type='haar', retim=False, maxiter=200)
                         if ((res.l2 + res2.l2) / 2.0 < bestl2):
