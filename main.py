@@ -860,7 +860,7 @@ if __name__ == "__main__":
         angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),
                   'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
         noises = (0.01, 0.05, 0.1)
-        sizes = (64, 128, 256, 512)
+        sizes = (64, 128, 256) # Three smallest for now.
 
         for _ in range(0,1):
             for size in sizes:
@@ -880,22 +880,22 @@ if __name__ == "__main__":
                         res = t.map_wavelet(haaralpha[angletype][size][noise], type='haar',retim=False)
                         t.saveresult(res)
 
-                        res = t.mwg_tv(tvalpha[angletype][size][noise], mapstart=True,M=100000,Madapt=50000, retim=False,thinning=500)
+                        res = t.mwg_tv(tvalpha[angletype][size][noise], mapstart=True,M=100000,Madapt=50000, retim=False,thinning=250)
                         t.saveresult(res)
 
-                        res = t.mwg_cauchy(cauchyalpha[angletype][size][noise],mapstart=True, M=100000, Madapt=50000, retim=False,thinning=500)
+                        res = t.mwg_cauchy(cauchyalpha[angletype][size][noise],mapstart=True, M=100000, Madapt=50000, retim=False,thinning=250)
                         t.saveresult(res)
 
-                        res = t.mwg_wavelet(haaralpha[angletype][size][noise], mapstart=True, type='haar',M=100000, Madapt=50000, retim=False,thinning=500)
+                        res = t.mwg_wavelet(haaralpha[angletype][size][noise], mapstart=True, type='haar',M=100000, Madapt=50000, retim=False,thinning=250)
                         t.saveresult(res)
 
-                        res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=2)
+                        res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1)
                         t.saveresult(res)
 
-                        res = t.hmcmc_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=2)
+                        res = t.hmcmc_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1)
                         t.saveresult(res)
 
-                        res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=2)
+                        res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1)
                         t.saveresult(res)
 
 
