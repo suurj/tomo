@@ -441,7 +441,7 @@ class tomography:
         res = None
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='hmc',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
-        from cyt import hmc, nonuts_hmc, ehmc
+        from cyt import hmc#, nonuts_hmc, ehmc
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
         reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
