@@ -290,7 +290,7 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
     cmestimate = np.zeros((dim,1))
     if (Madapt >= M):
         raise Exception('Madapt <= M.')
-    if (de < 0.05 or de > 0.999999):
+    if (de < 0.05 or de > 0.95):
         raise Exception('Delta is not within reasonable range.')
 
     for i in range(1,M+1):
@@ -347,7 +347,262 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
         return cmestimate,theta
     else:
         return cmestimate,None
+    
+    
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+@cython.cdivision(True)
+def nonuts_hmc(M,theta0,Q,aburn=10,L=50,aexp=50,adaptcoeff=0.6,delta=0.65,cmonly=False,thinning=1):
+    bar = tqdm(total=M,file=sys.stdout)
+    theta0 = np.reshape(theta0,(-1,1))
+    dim = theta0.shape[0]
+    cmestimate = np.zeros((dim,1))
+    x = theta0
+    acc = 0;
+    ratio = 0;
+    E = Q.logdensity(theta0, Q)
+    currdensity = E
+    currgrad = Q.gradi(theta0, Q)
+   
+    epsilon = initialeps(theta0,Q,currdensity,currgrad)
+    
+    if (aburn >= M):
+        raise Exception('Madapt <= M.')
+        
+    if (cmonly == False):
+        theta = np.zeros((dim, M//thinning + 1))
+        theta[:, 0] = np.ravel(theta0)  
+
+    for k in range(M):
+        bar.update(1)
+        p = np.random.randn(dim, 1)
+
+        x_old = x;
+        p_old = p;
+
+        # Recalculate Hamiltonian
+        E_old = E;
+        H_old = E_old - 0.5 * np.dot(p.T,p);
+
+        # First half-step of leapfrog.
+        grad = Q.gradi(x, Q);
+        p = p + 0.5 * epsilon*grad;
+
+        # Full leapfrog steps.
+        for n in range(L):
+            x = x + epsilon*p;
+
+            if n < L-1:
+                grad = Q.gradi(x, Q);
+                p = p + epsilon*grad;
+          
+
+        # Final half-step of leapfrog.
+        grad = Q.gradi(x, Q)
+        p = p + 0.5 * epsilon*grad;
+
+        # Energy and Hamiltonian
+        E = Q.logdensity(x, Q)
+        H =  E - 0.5 * np.dot(p.T,p);
+
+        a = (H  -H_old);
+        print(k,epsilon,acc/(k+1))
+        if np.log(np.random.rand()) < a:
+            # Accepted
+            acc = acc + 1;
+            curr_acc = 1;
+        else:
+            x = x_old;
+            p = p_old;
+            E = E_old;
+            H = H_old;
+            curr_acc = 0;
+
+
+        if k > aburn:
+            ratio = adaptcoeff * ratio + (1 - adaptcoeff) * curr_acc;
+            # Adapt epsilon 
+
+            cntl = 0.5 * np.exp(-(k+1) / aexp); # Diminishing adaptation
+            epsilon = np.exp(np.log(epsilon) + cntl * (ratio - delta));
+            
+            cmestimate = 1.0 / ((k-aburn)) * ((k-aburn-1) * cmestimate + x)
+
+        else:
+            ratio = acc / (k+1);
+            
+            
+        if(cmonly == False and (k%thinning == 0)):
+            theta[:, k//thinning] = np.ravel(x)
+            
+
+    
+    bar.close()
+
+    print ("Final epsilon: " +  str(np.ravel(epsilon)))
+
+    if(cmonly == False):
+        return cmestimate,theta
+    else:
+        return cmestimate,None 
+    
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+@cython.cdivision(True)
+def leapfrogL(theta,r,epsilon,L,Q):
+    grad = Q.gradi(theta, Q);
+    r = r + 0.5 * epsilon*grad;
+
+    # Full leapfrog steps.
+    for n in range(L):
+        theta = theta + epsilon*r;
+
+        if n < L-1:
+            grad = Q.gradi(theta, Q);
+            r = r + epsilon*grad;
+
+
+    # Final half-step of leapfrog.
+    grad = Q.gradi(theta, Q)
+    r = r+ 0.5 * epsilon*grad;
+    
+    return theta,r
+
+
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+@cython.cdivision(True)
+def longestbatch(theta,r,epsilon,L,Q):
+    l = 0
+    thetaplus = theta
+    rplus = r
+    thetatilde = theta
+    rtilde = r
+    while (np.dot((thetaplus - theta).T,rplus)) >=0:
+        l = l +1
+        thetaplus,rplus = leapfrogL(thetaplus,rplus,epsilon,1,Q)
+        if l == L:
+            thetatilde = thetaplus
+            rtilde = rplus
+    
+    return thetatilde, rtilde, l, epsilon
+    
+@cython.boundscheck(False) 
+@cython.wraparound(False)
+@cython.cdivision(True)
+def ehmc(M,theta0,Q,trials=30,L=50,delta=0.65,cmonly=False,thinning=1):
+    bar = tqdm(total=M,file=sys.stdout)
+    theta0 = np.reshape(theta0,(-1,1))
+    dim = theta0.shape[0]
+    cmestimate = np.zeros((dim,1))
+    x = theta0
+    acc = 0;
+    ratio = 0;
+    aexp=30
+    adaptcoeff=0.6
+    E = Q.logdensity(theta0, Q)
+    currdensity = E
+    currgrad = Q.gradi(theta0, Q)
+    L_list = np.zeros((trials,))
+   
+    epsilon = initialeps(theta0,Q,currdensity,currgrad)
+    acc = 0
+        
+    if (cmonly == False):
+        theta = np.zeros((dim, M//thinning + 1))
+        theta[:, 0] = np.ravel(theta0)  
      
+    for i in range(trials):
+        r = np.random.randn(dim, 1)
+        thetatilde, rtilde, Li = longestbatch(theta0,r,epsilon,L,Q)
+        if (Li < L):
+            thetatilde, rtilde = leapfrogL(thetatilde,rtilde,epsilon,L-Li,Q)
+        
+        H_new = Q.logdensity(thetatilde, Q) - 0.5 * np.dot(rtilde.T,rtilde)
+        H_old = Q.logdensity(theta0, Q) - 0.5 * np.dot(r.T,r)
+        curr_acc = 0
+        if np.log(np.random.rand()) < (H_new-H_old):
+            theta0 = thetatilde
+            acc = acc + 1;
+            curr_acc = 1;
+        
+        ratio = adaptcoeff * ratio + (1 - adaptcoeff) * curr_acc;
+        # Adapt epsilon 
+
+        cntl = 0.5 * np.exp(-(i+1) / aexp); # Diminishing adaptation
+        epsilon = np.exp(np.log(epsilon) + cntl * (ratio - delta));
+        
+        L_list[i] = Li 
+    
+        print(i,epsilon,Li)
+    exit(0)
+    
+    for k in range(M):
+        bar.update(1)
+        p = np.random.randn(dim, 1)
+
+        x_old = x;
+        p_old = p;
+
+        # Recalculate Hamiltonian
+        E_old = E;
+        H_old = E - 0.5 * np.dot(p.T,p);
+
+        # First half-step of leapfrog.
+        grad = Q.gradi(x, Q);
+        p = p + 0.5 * epsilon*grad;
+        
+        step = np.random.randint(trials)
+        step = L_list[step]
+        # Full leapfrog steps.
+        for n in range(L):
+            x = x + epsilon*p;
+
+            if n < L-1:
+                grad = Q.gradi(x, Q);
+                p = p + epsilon*grad;
+          
+
+        # Final half-step of leapfrog.
+        grad = Q.gradi(x, Q)
+        p = p + 0.5 * epsilon*grad;
+
+        # Energy and Hamiltonian
+        E = Q.logdensity(x, Q)
+        H =  E - 0.5 * np.dot(p.T,p);
+
+        a = (H  -H_old);
+        print(k,epsilon,acc/(k+1))
+        if np.log(np.random.rand()) < a:
+            # Accepted
+            acc = acc + 1;
+            curr_acc = 1;
+        else:
+            x = x_old;
+            p = p_old;
+            E = E_old;
+            H = H_old;
+            curr_acc = 0;
+
+
+       
+            
+            
+        if(cmonly == False and (k%thinning == 0)):
+            theta[:, k//thinning] = np.ravel(x)
+            
+
+    
+    bar.close()
+
+    print ("Final epsilon: " +  str(np.ravel(epsilon)))
+
+    if(cmonly == False):
+        return cmestimate,theta
+    else:
+        return cmestimate,None     
+       
+
 
 
 # Metropolis within-Gibbs function for TV prior and Gaussian likelihood.

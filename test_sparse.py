@@ -24,39 +24,106 @@ from collections import namedtuple
 import cairosvg
 import pathlib
 
-from collections import defaultdict
-class NestedDefaultDict(defaultdict):
-        def __init__(self, *args, **kwargs):
-            super(NestedDefaultDict, self).__init__(NestedDefaultDict, *args, **kwargs)
-
-        def __repr__(self):
-            return repr(dict(self))
-
-
-rr=NestedDefaultDict()
-rr['3']['koe'][22] = 4.6
-import json
-json = json.dumps(rr)
-f = open("dict.json","w")
-f.write(json)
-f.close()
-exit(0)
+# from collections import defaultdict
+# class NestedDefaultDict(defaultdict):
+#         def __init__(self, *args, **kwargs):
+#             super(NestedDefaultDict, self).__init__(NestedDefaultDict, *args, **kwargs)
+#
+#         def __repr__(self):
+#             return repr(dict(self))
+#
+#
+# rr=NestedDefaultDict()
+# rr['3']['koe'][22] = 4.6
+# import json
+# json = json.dumps(rr)
+# f = open("dict.json","w")
+# f.write(json)
+# f.close()
+# exit(0)
 
 
 from matplotlib import rc
+from skimage.measure import profile_line
 #rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 ## for Palatino and other serif fonts use:
 #rc('font',**{'family':'serif','serif':['Palatino']})
+import pywt
+from pywt._doc_utils import wavedec2_keys, draw_2d_wp_basis
 rc('text', usetex=True)
 plt.rcParams['text.latex.unicode'] = True
 plt.rcParams['image.cmap'] ='gray'
 rc('font', family='serif')
 
 img = imread("drawing.png", as_gray=True)
-##rr=radon(img, np.linspace(0,180,280), circle=False)
+wave  = pywt.dwt2(img, 'haar')
 
-fig, ax = plt.subplots()
-plt.imshow(img, interpolation='bilinear', aspect='auto',extent=[-1, 1, -1,1])
+x =img# pywt.data.camera().astype(np.float32)
+shape = x.shape
+
+max_lev = 3       # how many levels of decomposition to draw
+label_levels = 3  # how many levels to explicitly label on the plots
+
+fig, axes = plt.subplots()
+# for level in range(0, max_lev + 1):
+#     if level == 0:
+#         # show the original image before decomposition
+#         axes[0, 0].set_axis_off()
+#         axes[1, 0].imshow(x, cmap=plt.cm.gray)
+#         axes[1, 0].set_title('Image')
+#         axes[1, 0].set_axis_off()
+#         continue
+#
+#     # plot subband boundaries of a standard DWT basis
+#     #draw_2d_wp_basis(shape, wavedec2_keys(level), ax=axes[0, level],
+#     #                 label_levels=label_levels)
+#     #axes[0, level].set_title('{} level\ndecomposition'.format(level))
+#
+#     # compute the 2D DWT
+#     c = pywt.wavedec2(x, 'db2', mode='periodization', level=level)
+#     # normalize each coefficient array independently for better visibility
+#     c[0] /= np.abs(c[0]).max()
+#     for detail_level in range(level):
+#         c[detail_level + 1] = [d/np.abs(d).max() for d in c[detail_level + 1]]
+#     # show the normalized coefficients
+#     arr, slices = pywt.coeffs_to_array(c)
+#     axes[1, level].imshow(arr, cmap=plt.cm.gray)
+#     axes[1, level].set_title('Coefficients\n({} level)'.format(level))
+#     axes[1, level].set_axis_off()
+#draw_2d_wp_basis(shape, wavedec2_keys(2), a, label_levels=label_levels)
+c = pywt.wavedec2(x, 'db2', mode='periodization', level=2)
+arr, slices = pywt.coeffs_to_array(c)
+plt.imshow(arr,extent=[-1,1,-1,1])
+plt.clim(0, 0.001)
+plt.tight_layout()
+plt.title('Koe')
+plt.savefig('koe.pdf')
+plt.show()
+#fig, ax = plt.subplots()
+#plt.imshow(wave, interpolation='bilinear', aspect='auto',extent=[-1,1,-1,1])
+#plt.clim(0, 8)
+#img = img/255
+# img[:,330] = 0; img[293,:] = 0;
+# fou = np.log(np.abs(np.fft.fftshift(np.fft.fft2(img))))
+# line=profile_line(fou, (img.shape[0]//2,0*img.shape[1]//2), (img.shape[0]//2,img.shape[1]), linewidth=1, order=1, mode='constant', cval=0.0)
+#
+#
+# rr=radon(img, np.linspace(0,180,280,endpoint=True), circle=True)
+# kk = np.empty(rr.shape)
+# for i in range(280):
+#     kk[:,i] = np.log(np.abs(np.fft.fftshift(np.fft.fft(rr[:,i]))))
+#
+# fig, ax = plt.subplots()
+# plt.imshow(fou, interpolation='bilinear', aspect='auto',extent=[-1,1,-1,1])
+# plt.clim(0, 8)
+# plt.figure()
+# #plt.plot(np.real(np.fft.ifft(line)))
+# # plt.plot(line)
+# # plt.figure()
+# plt.imshow(kk,interpolation='bilinear', aspect='auto', extent = [0,180,-1,1])
+# plt.clim(0, 8)
+# plt.figure()
+# plt.plot(kk[:,0])
 #[0, 180, np.sqrt(2), -np.sqrt(2)]
 #ax.set_xlabel(r'time (s)',fontsize=12)
 #ax.set_ylabel(r'Velocity', fontsize=12)

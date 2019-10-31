@@ -437,11 +437,11 @@ class tomography:
         else:
             return solution
 
-    def hmcmc_cauchy(self, alpha, M=100, Madapt=20,thinning=1,mapstart=True,retim=True):
+    def hmcmc_cauchy(self, alpha, M=100, Madapt=20,thinning=1,mapstart=False,retim=True):
         res = None
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='hmc',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
-        from cyt import hmc
+        from cyt import hmc, nonuts_hmc, ehmc
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
         reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
@@ -466,6 +466,9 @@ class tomography:
         else:
             x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running HMC for Cauchy prior.")
+        #solution,chain = nonuts_hmc(M, x0, self.Q, 10, L=100, delta=0.65,cmonly=False, thinning=thinning)
+        #solution,chain = ehmc(M, x0, self.Q, trials=50, L=50, delta=0.65,cmonly=False, thinning=thinning)
+        #solution = np.median(chain,axis=1)
         solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=retim, thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))

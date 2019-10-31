@@ -11,11 +11,12 @@ from pytwalk import pytwalk as pytwalk2
 from twalk import pytwalk
 
 
-ww=pytwalk2(n=10,n1phi=4,aw=1.5,at=6.0)
-rr=ww.Run( T=3500, x0=np.random.randn(10,), xp0=1*np.random.randn(10,))
+ww=pytwalk(n=10,n1phi=4,aw=1.5,at=6.0)
+rr=ww.Run( T=35000, x0=np.random.randn(10,), xp0=1*np.random.randn(10,))
 #print(np.cov(rr))
 #ww.Ana()
-plt.plot(rr[0,:])
+print(np.std(rr[0,:]),np.median(rr[0,:]))
+plt.hist(rr[0,:], bins='auto')
 #plt.plot(rr[0,:],rr[1,:],'*r')
 plt.show()
 exit(0)
