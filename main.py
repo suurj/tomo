@@ -68,7 +68,7 @@ class tomography:
         self.N_thetabig = N_thetabig
         self.N_rbig = math.ceil(np.sqrt(2) * self.dimbig)
         self.crimefree = crimefree
-        if targetsize > 512:
+        if targetsize > 1100:
             raise Exception(
                 'Dimensions of the target image are too large (' + str(targetsize) + 'x' + str(targetsize) + ')')
 
