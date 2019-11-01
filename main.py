@@ -881,7 +881,7 @@ if __name__ == "__main__":
         angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),
                   'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
         noises = (0.02, 0.05, 0.1)
-        sizes = (64, 128, 256, 512) # Three smallest for now.
+        sizes = (64, 128, 256, 512) # 
 
         for _ in range(0,1):
             for size in sizes:
