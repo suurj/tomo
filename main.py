@@ -357,11 +357,11 @@ class tomography:
         else:
             return solution
 
-    def hmcmc_tikhonov(self, alpha, M=100, Madapt=20, order=1,mapstart=False,thinning=1,retim=True):
+    def hmcmc_tikhonov(self, alpha, M=100, Madapt=20, order=1,mapstart=False,thinning=1,retim=True,variant='hmc'):
         res = None
         if not retim:
-            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tikhonov',method='hmc',levels=order,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
-        from cyt import hmc
+            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tikhonov',method=variant,levels=order,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+        from cyt import hmc, ehmc
         if (order == 2):
             regvalues = np.array([2, -1, -1, -1, -1])
             offsets = np.array([0, 1, -1, self.dim - 1, -self.dim + 1])
@@ -389,8 +389,12 @@ class tomography:
             x0 = x0 + 0.01*np.random.rand(self.dim*self.dim,1)
         else:
             x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
-        print("Running HMC for Tikhonov prior.")
-        solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, kappa=0.75, cmonly=retim,thinning=thinning)
+        print("Running  " + variant.upper() + " for Tikhonov prior.")
+        if (variant == 'hmc'):
+            solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning)
+        else:
+            solution, chain = ehmc(M, x0, self.Q, Madapt, kappa=0.75, cmonly=retim,thinning=thinning)
+        #solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, kappa=0.75, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
@@ -399,11 +403,11 @@ class tomography:
         else:
             return solution
 
-    def hmcmc_tv(self, alpha, M=100, Madapt=20,mapstart=False,thinning=1,retim=True):
+    def hmcmc_tv(self, alpha, M=100, Madapt=20,mapstart=False,thinning=1,retim=True,variant='hmc'):
         res = None
         if not retim:
-            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method='hmc',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
-        from cyt import hmc
+            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method=variant,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+        from cyt import hmc, ehmc
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
         reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
@@ -427,8 +431,12 @@ class tomography:
             x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
         else:
             x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
-        print("Running HMC for TV prior.")
-        solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, kappa=0.75, cmonly=retim,thinning=thinning)
+        print("Running " + variant+ " for TV prior.")
+        if (variant == 'hmc'):
+            solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning)
+        else:
+            solution, chain = ehmc(M, x0, self.Q, Madapt,  cmonly=retim,thinning=thinning)
+        #solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, kappa=0.75, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
@@ -437,11 +445,11 @@ class tomography:
         else:
             return solution
 
-    def hmcmc_cauchy(self, alpha, M=100, Madapt=20,thinning=1,mapstart=False,retim=True):
+    def hmcmc_cauchy(self, alpha, M=100, Madapt=20,thinning=1,mapstart=False,retim=True,variant='hmc'):
         res = None
         if not retim:
-            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='hmc',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
-        from cyt import hmc#, nonuts_hmc, ehmc
+            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method=variant,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+        from cyt import hmc, ehmc
         regvalues = np.array([1, -1, 1])
         offsets = np.array([-self.dim + 1, 0, 1])
         reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
@@ -465,11 +473,14 @@ class tomography:
             x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
         else:
             x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
-        print("Running HMC for Cauchy prior.")
+        print("Running " + variant.upper() + " for Cauchy prior.")
         #solution,chain = nonuts_hmc(M, x0, self.Q, 10, L=100, delta=0.65,cmonly=False, thinning=thinning)
-        #solution,chain = ehmc(M, x0, self.Q, trials=50, L=50, delta=0.65,cmonly=False, thinning=thinning)
+        #solution,chain = ehmc(M, x0, self.Q, epstrials=25,Ltrials=25, L=50, delta=0.65,cmonly=False, thinning=thinning)
         #solution = np.median(chain,axis=1)
-        solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=retim, thinning=thinning)
+        if(variant=='hmc'):
+            solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=retim, thinning=thinning)
+        else:
+            solution,chain = ehmc(M, x0, self.Q, Madapt, cmonly=retim, thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
@@ -478,14 +489,14 @@ class tomography:
         else:
             return solution
 
-    def hmcmc_wavelet(self, alpha, M=100, Madapt=20, type='haar',levels=None,mapstart=False,thinning=1,retim=True):
+    def hmcmc_wavelet(self, alpha, M=100, Madapt=20, type='haar',levels=None,mapstart=False,thinning=1,retim=True,variant='hmc'):
         res = None
         if (levels is None):
             levels = int(np.floor(np.log2(self.dim))-1)
         if not retim:
-            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,levels=levels,alpha=alpha,prior=type,method='hmc',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+            res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,levels=levels,alpha=alpha,prior=type,method=variant,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from matrices import totalmatrix
-        from cyt import hmc
+        from cyt import hmc, ehmc
         wl = pywt.Wavelet(type)
         g = np.array(wl.dec_lo)
         h = np.array(wl.dec_hi)
@@ -507,8 +518,12 @@ class tomography:
             x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
         else:
             x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
-        print("Running HMC for Besov prior (" + type + ' '  + str(levels) + ').' )
-        solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=retim,thinning=thinning)
+        print("Running " + variant.upper() + " for Besov prior (" + type + ' '  + str(levels) + ').' )
+        if (variant == 'hmc'):
+            solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning)
+        else:
+            solution, chain = ehmc(M, x0, self.Q, Madapt,  cmonly=retim,thinning=thinning)
+        #solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
@@ -757,8 +772,8 @@ if __name__ == "__main__":
         
         angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),
                   'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
-        noises = (0.01, 0.05, 0.1)
-        sizes = (64, 128, 256, 512)
+        noises = ( 0.05,)
+        sizes = (1024,)
 
         
         alphas = np.linspace(0.5,30,15)
@@ -874,35 +889,52 @@ if __name__ == "__main__":
                     for noise in noises:
                         t = tomography("shepp.png", size, theta, noise, crimefree=True, commonprefix='/results/')
 
-                        res = t.map_tikhonov(tikhoalpha[angletype][size][noise], order=1, retim=False)
+                        res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1,variant='ehmc')
                         t.saveresult(res)
 
-                        res = t.map_tv(tvalpha[angletype][size][noise] ,retim=False)
+                        res = t.hmcmc_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1,variant='ehmc')
                         t.saveresult(res)
 
-                        res = t.map_cauchy(cauchyalpha[angletype][size][noise], retim=False)
+                        res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1,variant='ehmc')
                         t.saveresult(res)
 
-                        res = t.map_wavelet(haaralpha[angletype][size][noise], type='haar',retim=False)
-                        t.saveresult(res)
-
-                        res = t.mwg_tv(tvalpha[angletype][size][noise], mapstart=True,M=100000,Madapt=50000, retim=False,thinning=250)
-                        t.saveresult(res)
-
-                        res = t.mwg_cauchy(cauchyalpha[angletype][size][noise],mapstart=True, M=100000, Madapt=50000, retim=False,thinning=250)
-                        t.saveresult(res)
-
-                        res = t.mwg_wavelet(haaralpha[angletype][size][noise], mapstart=True, type='haar',M=100000, Madapt=50000, retim=False,thinning=250)
-                        t.saveresult(res)
-
-                        res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1)
-                        t.saveresult(res)
-
-                        res = t.hmcmc_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1)
-                        t.saveresult(res)
-
-                        res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1)
-                        t.saveresult(res)
+                        # t = tomography("shepp.png", size, theta, noise, crimefree=True, commonprefix='/results/')
+                        #
+                        # res = t.map_tikhonov(tikhoalpha[angletype][size][noise], order=1, retim=False)
+                        # t.saveresult(res)
+                        #
+                        # res = t.map_tv(tvalpha[angletype][size][noise], retim=False)
+                        # t.saveresult(res)
+                        #
+                        # res = t.map_cauchy(cauchyalpha[angletype][size][noise], retim=False)
+                        # t.saveresult(res)
+                        #
+                        # res = t.map_wavelet(haaralpha[angletype][size][noise], type='haar', retim=False)
+                        # t.saveresult(res)
+                        #
+                        # res = t.mwg_tv(tvalpha[angletype][size][noise], mapstart=True, M=100000, Madapt=50000,
+                        #                retim=False, thinning=250)
+                        # t.saveresult(res)
+                        #
+                        # res = t.mwg_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=100000, Madapt=50000,
+                        #                    retim=False, thinning=250)
+                        # t.saveresult(res)
+                        #
+                        # res = t.mwg_wavelet(haaralpha[angletype][size][noise], mapstart=True, type='haar', M=100000,
+                        #                     Madapt=50000, retim=False, thinning=250)
+                        # t.saveresult(res)
+                        #
+                        # res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,
+                        #                  thinning=1)
+                        # t.saveresult(res)
+                        #
+                        # res = t.hmcmc_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
+                        #                      retim=False, thinning=1)
+                        # t.saveresult(res)
+                        #
+                        # res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
+                        #                       retim=False, thinning=1)
+                        # t.saveresult(res)
 
 
 
