@@ -491,8 +491,8 @@ def longestbatch(theta,r,epsilon,L,Q):
 @cython.wraparound(False)
 @cython.cdivision(True)
 def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=False,thinning=1):
-    Ltrials = np.int(np.ceil(2*Madapt/3))
-    epstrials = np.int(np.ceil(Madapt/3))
+    Ltrials = np.int(np.floor(Madapt/2))
+    epstrials = np.int(np.ceil(Madapt/2))
     bar = tqdm(total=M+Ltrials+epstrials,file=sys.stdout)
     theta0 = np.reshape(theta0,(-1,1))
     theta00 = theta0

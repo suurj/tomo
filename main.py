@@ -431,7 +431,7 @@ class tomography:
             x0 = x0 + 0.01 * np.random.rand(self.dim * self.dim, 1)
         else:
             x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
-        print("Running " + variant+ " for TV prior.")
+        print("Running " + variant.upper() + " for TV prior.")
         if (variant == 'hmc'):
             solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning)
         else:
@@ -775,100 +775,101 @@ if __name__ == "__main__":
         noises = ( 0.05,)
         sizes = (1024,)
 
-        
-        alphas = np.geomspace(0.1,1000,15)
-        tikhoalpha = NestedDefaultDict()
-        for size in sizes:
-            for angletype,angle in angles.items():
-                    for noise in noises:
-                        bestl2 = np.Inf
-                        best = 0
-                        t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                        t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                        for alpha in alphas:
-                            res = t.map_tikhonov(alpha, retim=False,maxiter=500)
-                            res2 = t2.map_tikhonov(alpha, retim=False, maxiter=500)
-                            if ((res.l2 + res2.l2)/2.0 < bestl2):
-                                best = alpha
-                                bestl2 = (res.l2 + res2.l2)/2.0
-                        tikhoalpha[angletype][size][noise] = best
-
-        jsontik = json.dumps(tikhoalpha)
-        f = open("tikhonov.json", "w")
-        f.write(jsontik)
-        f.close()
-        print(tikhoalpha)
-
-        alphas = np.geomspace(0.1, 1000, 15)
-        tvalpha = NestedDefaultDict()
-        for size in sizes:
-            for angletype, angle in angles.items():
-                for noise in noises:
-                    bestl2 = np.Inf
-                    best = 0
-                    t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    for alpha in alphas:
-                        res = t.map_tv(alpha, retim=False, maxiter=500)
-                        res2 = t2.map_tv(alpha, retim=False, maxiter=500)
-                        if ((res.l2 + res2.l2) / 2.0 < bestl2):
-                            best = alpha
-                            bestl2 = (res.l2 + res2.l2) / 2.0
-                    tvalpha[angletype][size][noise] = best
-
-        jsontv = json.dumps(tvalpha)
-        f = open("tv.json", "w")
-        f.write(jsontv)
-        f.close()
-        print(tvalpha)
-
-        alphas = np.geomspace(0.000001, 2, 15)
-        cauchyalpha = NestedDefaultDict()
-        for size in sizes:
-            for angletype, angle in angles.items():
-                for noise in noises:
-                    bestl2 = np.Inf
-                    best = 0
-                    t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    for alpha in alphas:
-                        res = t.map_cauchy(alpha, retim=False, maxiter=500)
-                        res2 = t2.map_cauchy(alpha, retim=False, maxiter=500)
-                        if ((res.l2 + res2.l2) / 2.0 < bestl2):
-                            best = alpha
-                            bestl2 = (res.l2 + res2.l2) / 2.0
-                    cauchyalpha[angletype][size][noise] = best
-
-        jsoncau= json.dumps(cauchyalpha)
-        f = open("cauchy.json", "w")
-        f.write(jsoncau)
-        f.close()
-        print(cauchyalpha)
-
-        alphas = np.geomspace(0.01, 1000, 15)
-        haaralpha = NestedDefaultDict()
-        for size in sizes:
-            for angletype, angle in angles.items():
-                for noise in noises:
-                    bestl2 = np.Inf
-                    best = 0
-                    t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    for alpha in alphas:
-                        res = t.map_wavelet(alpha, type='haar', retim=False, maxiter=500)
-                        res2 = t2.map_wavelet(alpha, type='haar', retim=False, maxiter=500)
-                        if ((res.l2 + res2.l2) / 2.0 < bestl2):
-                            best = alpha
-                            bestl2 = (res.l2 + res2.l2) / 2.0
-                    haaralpha[angletype][size][noise] = best
-
-        jsonhaar = json.dumps(haaralpha)
-        f = open("haar.json", "w")
-        f.write(jsonhaar)
-        f.close()
-        print(haaralpha)
-        exit(0)
-
+        #
+        # alphas = np.geomspace(0.1,1000,15)
+        # tikhoalpha = NestedDefaultDict()
+        # for size in sizes:
+        #     for angletype,angle in angles.items():
+        #             for noise in noises:
+        #                 bestl2 = np.Inf
+        #                 best = 0
+        #                 t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+        #                 t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+        #                 for alpha in alphas:
+        #                     res = t.map_tikhonov(alpha, retim=False,maxiter=500)
+        #                     res2 = t2.map_tikhonov(alpha, retim=False, maxiter=500)
+        #                     if ((res.l2 + res2.l2)/2.0 < bestl2):
+        #                         best = alpha
+        #                         bestl2 = (res.l2 + res2.l2)/2.0
+        #                 tikhoalpha[angletype][size][noise] = best
+        #
+        # jsontik = json.dumps(tikhoalpha)
+        # f = open("tikhonov.json", "w")
+        # f.write(jsontik)
+        # f.close()
+        # print(tikhoalpha)
+        #
+        # alphas = np.geomspace(0.1, 1000, 15)
+        # tvalpha = NestedDefaultDict()
+        # for size in sizes:
+        #     for angletype, angle in angles.items():
+        #         for noise in noises:
+        #             bestl2 = np.Inf
+        #             best = 0
+        #             t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+        #             t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+        #             for alpha in alphas:
+        #                 res = t.map_tv(alpha, retim=False, maxiter=500)
+        #                 res2 = t2.map_tv(alpha, retim=False, maxiter=500)
+        #                 if ((res.l2 + res2.l2) / 2.0 < bestl2):
+        #                     best = alpha
+        #                     bestl2 = (res.l2 + res2.l2) / 2.0
+        #             tvalpha[angletype][size][noise] = best
+        #
+        # jsontv = json.dumps(tvalpha)
+        # f = open("tv.json", "w")
+        # f.write(jsontv)
+        # f.close()
+        # print(tvalpha)
+        #
+        # alphas = np.geomspace(0.000001, 2, 15)
+        # cauchyalpha = NestedDefaultDict()
+        # for size in sizes:
+        #     for angletype, angle in angles.items():
+        #         for noise in noises:
+        #             bestl2 = np.Inf
+        #             best = 0
+        #             t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+        #             t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+        #             for alpha in alphas:
+        #                 res = t.map_cauchy(alpha, retim=False, maxiter=500)
+        #                 res2 = t2.map_cauchy(alpha, retim=False, maxiter=500)
+        #                 if ((res.l2 + res2.l2) / 2.0 < bestl2):
+        #                     best = alpha
+        #                     bestl2 = (res.l2 + res2.l2) / 2.0
+        #             cauchyalpha[angletype][size][noise] = best
+        #
+        # jsoncau= json.dumps(cauchyalpha)
+        # f = open("cauchy.json", "w")
+        # f.write(jsoncau)
+        # f.close()
+        # print(cauchyalpha)
+        #
+        # alphas = np.geomspace(0.01, 1000, 15)
+        # haaralpha = NestedDefaultDict()
+        # for size in sizes:
+        #     for angletype, angle in angles.items():
+        #         for noise in noises:
+        #             bestl2 = np.Inf
+        #             best = 0
+        #             t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+        #             t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+        #             for alpha in alphas:
+        #                 res = t.map_wavelet(alpha, type='haar', retim=False, maxiter=500)
+        #                 res2 = t2.map_wavelet(alpha, type='haar', retim=False, maxiter=500)
+        #                 if ((res.l2 + res2.l2) / 2.0 < bestl2):
+        #                     best = alpha
+        #                     bestl2 = (res.l2 + res2.l2) / 2.0
+        #             haaralpha[angletype][size][noise] = best
+        #
+        # jsonhaar = json.dumps(haaralpha)
+        # f = open("haar.json", "w")
+        # f.write(jsonhaar)
+        # f.close()
+        # print(haaralpha)
+        # exit(0)
+        '''
+        #4 image sizes, 6 angle types, 3 noise levels
         #tikhoalpha =  {"sparsestwhole": {64: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 128: {0.01: 25.785714285714285, 0.05: 4.714285714285714, 0.1: 2.607142857142857}, 256: {0.01: 2.607142857142857, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 512: {0.01: 2.607142857142857, 0.05: 8.928571428571429, 0.1: 4.714285714285714}}, "sparsewhole": {64: {0.01: 30.0, 0.05: 8.928571428571429, 0.1: 4.714285714285714}, 128: {0.01: 30.0, 0.05: 4.714285714285714, 0.1: 4.714285714285714}, 256: {0.01: 23.67857142857143, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 512: {0.01: 15.25, 0.05: 6.821428571428571, 0.1: 4.714285714285714}}, "whole": {64: {0.01: 30.0, 0.05: 17.357142857142858, 0.1: 6.821428571428571}, 128: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 256: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 512: {0.01: 19.464285714285715, 0.05: 8.928571428571429, 0.1: 6.821428571428571}}, "sparsestlimited": {64: {0.01: 30.0, 0.05: 17.357142857142858, 0.1: 6.821428571428571}, 128: {0.01: 19.464285714285715, 0.05: 6.821428571428571, 0.1: 6.821428571428571}, 256: {0.01: 11.035714285714286, 0.05: 4.714285714285714, 0.1: 4.714285714285714}, 512: {0.01: 15.25, 0.05: 4.714285714285714, 0.1: 6.821428571428571}}, "sparselimited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 13.142857142857142}, 128: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 6.821428571428571}, 256: {0.01: 27.892857142857142, 0.05: 8.928571428571429, 0.1: 6.821428571428571}, 512: {0.01: 23.67857142857143, 0.05: 8.928571428571429, 0.1: 6.821428571428571}}, "limited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 21.571428571428573}, 128: {0.01: 30.0, 0.05: 11.035714285714286, 0.1: 8.928571428571429}, 256: {0.01: 30.0, 0.05: 11.035714285714286, 0.1: 8.928571428571429}, 512: {0.01: 30.0, 0.05: 11.035714285714286, 0.1: 6.821428571428571}}}
         tikhoalpha = {"sparsestwhole": {64: {0.02: 26.207413942088984, 0.05: 7.218038036465943, 0.1: 3.760603093086394}, 128: {0.02: 14.247868454254814, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 256: {0.02: 10.505404060985274, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 512: {0.02: 10.505404060985274, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparsewhole": {64: {0.02: 35.54359110848588, 0.05: 10.0, 0.1: 5.2100073095869135}, 128: {0.02: 14.247868454254814, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 256: {0.02: 10.505404060985274, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 512: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "whole": {64: {0.02: 88.66918395150992, 0.05: 19.193831036664843, 0.1: 7.218038036465943}, 128: {0.02: 19.323555220846075, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 256: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 512: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparsestlimited": {64: {0.02: 65.37859386891436, 0.05: 19.193831036664843, 0.1: 7.218038036465943}, 128: {0.02: 7.745966692414836, 0.05: 5.2100073095869135, 0.1: 5.2100073095869135}, 256: {0.02: 5.711346241581194, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 512: {0.02: 5.711346241581194, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparselimited": {64: {0.02: 221.19948878068303, 0.05: 36.84031498640386, 0.1: 13.854180248814739}, 128: {0.02: 19.323555220846075, 0.05: 10.0, 0.1: 5.2100073095869135}, 256: {0.02: 10.505404060985274, 0.05: 10.0, 0.1: 5.2100073095869135}, 512: {0.02: 10.505404060985274, 0.05: 7.218038036465943, 0.1: 7.218038036465943}}, "limited": {64: {0.02: 360.9019018232971, 0.05: 70.71067811865474, 0.1: 19.193831036664843}, 128: {0.02: 35.54359110848588, 0.05: 13.854180248814739, 0.1: 7.218038036465943}, 256: {0.02: 19.323555220846075, 0.05: 13.854180248814739, 0.1: 7.218038036465943}, 512: {0.02: 14.247868454254814, 0.05: 10.0, 0.1: 7.218038036465943}}}
         #tvalpha = {"sparsestwhole": {64: {0.01: 25.0, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 128: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 256: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "sparsewhole": {64: {0.01: 25.0, 0.05: 5.435714285714285, 0.1: 1.8785714285714286}, 128: {0.01: 25.0, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 256: {0.01: 7.2142857142857135, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "whole": {64: {0.01: 25.0, 0.05: 10.77142857142857, 0.1: 3.657142857142857}, 128: {0.01: 25.0, 0.05: 3.657142857142857, 0.1: 1.8785714285714286}, 256: {0.01: 23.22142857142857, 0.05: 3.657142857142857, 0.1: 1.8785714285714286}, 512: {0.01: 5.435714285714285, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "sparsestlimited": {64: {0.01: 25.0, 0.05: 8.992857142857142, 0.1: 3.657142857142857}, 128: {0.01: 3.657142857142857, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 256: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "sparselimited": {64: {0.01: 25.0, 0.05: 25.0, 0.1: 7.2142857142857135}, 128: {0.01: 14.328571428571427, 0.05: 1.8785714285714286, 0.1: 3.657142857142857}, 256: {0.01: 5.435714285714285, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 3.657142857142857, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "limited": {64: {0.01: 25.0, 0.05: 25.0, 0.1: 14.328571428571427}, 128: {0.01: 25.0, 0.05: 3.657142857142857, 0.1: 1.8785714285714286}, 256: {0.01: 8.992857142857142, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 8.992857142857142, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}}
@@ -881,7 +882,16 @@ if __name__ == "__main__":
         angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),
                   'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
         noises = (0.02, 0.05, 0.1)
-        sizes = (64, 128, 256, 512) # 
+        sizes = (64, 128, 256, 512) #
+        '''
+
+        # Big image and one noise level
+        tikhoalpha = {"sparsestwhole": {1024: {0.05: 19.306977288832496}}, "sparsewhole": {1024: {0.05: 10.0}}, "whole": {1024: {0.05: 19.306977288832496}}, "sparsestlimited": {1024: {0.05: 5.17947467923121}}, "sparselimited": {1024: {0.05: 19.306977288832496}}, "limited": {1024: {0.05: 19.306977288832496}}}
+        tvalpha = {"sparsestwhole": {1024: {0.05: 2.6826957952797246}}, "sparsewhole": {1024: {0.05: 2.6826957952797246}}, "whole": {1024: {0.05: 2.6826957952797246}}, "sparsestlimited": {1024: {0.05: 5.17947467923121}}, "sparselimited": {1024: {0.05: 2.6826957952797246}}, "limited": {1024: {0.05: 2.6826957952797246}}}
+        cauchyalpha = {"sparsestwhole": {1024: {0.05: 0.08929132803668435}}, "sparsewhole": {1024: {0.05: 0.08929132803668435}}, "whole": {1024: {0.05: 0.08929132803668435}}, "sparsestlimited": {1024: {0.05: 0.08929132803668435}}, "sparselimited": {1024: {0.05: 0.08929132803668435}}, "limited": {1024: {0.05: 0.08929132803668435}}}
+        haaralpha = {"sparsestwhole": {1024: {0.05: 1.3894954943731375}}, "sparsewhole": {1024: {0.05: 1.3894954943731375}}, "whole": {1024: {0.05: 3.1622776601683795}}, "sparsestlimited": {1024: {0.05: 1.3894954943731375}}, "sparselimited": {1024: {0.05: 3.1622776601683795}}, "limited": {1024: {0.05: 3.1622776601683795}}}
+
+        angles = {'sparsewhole': 45, 'sparselimited': (0, 45, 45) }
 
         for _ in range(0,1):
             for size in sizes:
@@ -889,53 +899,53 @@ if __name__ == "__main__":
                     for noise in noises:
                         t = tomography("shepp.png", size, theta, noise, crimefree=True, commonprefix='/results/')
 
-                        res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1,variant='ehmc')
+                        res = t.map_tikhonov(tikhoalpha[angletype][size][noise], order=1, retim=False)
                         t.saveresult(res)
 
-                        res = t.hmcmc_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1,variant='ehmc')
+                        res = t.map_tv(tvalpha[angletype][size][noise], retim=False)
                         t.saveresult(res)
 
-                        res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,thinning=1,variant='ehmc')
+                        res = t.map_cauchy(cauchyalpha[angletype][size][noise], retim=False)
                         t.saveresult(res)
 
-                        # t = tomography("shepp.png", size, theta, noise, crimefree=True, commonprefix='/results/')
-                        #
-                        # res = t.map_tikhonov(tikhoalpha[angletype][size][noise], order=1, retim=False)
-                        # t.saveresult(res)
-                        #
-                        # res = t.map_tv(tvalpha[angletype][size][noise], retim=False)
-                        # t.saveresult(res)
-                        #
-                        # res = t.map_cauchy(cauchyalpha[angletype][size][noise], retim=False)
-                        # t.saveresult(res)
-                        #
-                        # res = t.map_wavelet(haaralpha[angletype][size][noise], type='haar', retim=False)
-                        # t.saveresult(res)
-                        #
-                        # res = t.mwg_tv(tvalpha[angletype][size][noise], mapstart=True, M=100000, Madapt=50000,
-                        #                retim=False, thinning=250)
-                        # t.saveresult(res)
-                        #
-                        # res = t.mwg_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=100000, Madapt=50000,
-                        #                    retim=False, thinning=250)
-                        # t.saveresult(res)
-                        #
-                        # res = t.mwg_wavelet(haaralpha[angletype][size][noise], mapstart=True, type='haar', M=100000,
-                        #                     Madapt=50000, retim=False, thinning=250)
-                        # t.saveresult(res)
-                        #
-                        # res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,
-                        #                  thinning=1)
-                        # t.saveresult(res)
-                        #
-                        # res = t.hmcmc_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
-                        #                      retim=False, thinning=1)
-                        # t.saveresult(res)
-                        #
-                        # res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
-                        #                       retim=False, thinning=1)
-                        # t.saveresult(res)
+                        res = t.map_wavelet(haaralpha[angletype][size][noise], type='haar', retim=False)
+                        t.saveresult(res)
 
+                        res = t.mwg_tv(tvalpha[angletype][size][noise], mapstart=True, M=100000, Madapt=50000,
+                                       retim=False, thinning=250)
+                        t.saveresult(res)
+
+                        res = t.mwg_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=100000, Madapt=50000,
+                                           retim=False, thinning=250)
+                        t.saveresult(res)
+
+                        res = t.mwg_wavelet(haaralpha[angletype][size][noise], mapstart=True, type='haar', M=100000,
+                                            Madapt=50000, retim=False, thinning=250)
+                        t.saveresult(res)
+
+                        res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,
+                                         thinning=1)
+                        t.saveresult(res)
+
+                        res = t.hmcmc_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
+                                             retim=False, thinning=1)
+                        t.saveresult(res)
+
+                        res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
+                                              retim=False, thinning=1)
+                        t.saveresult(res)
+
+                        res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,
+                                         thinning=1, variant='ehmc')
+                        t.saveresult(res)
+
+                        res = t.hmcmc_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
+                                             retim=False, thinning=1, variant='ehmc')
+                        t.saveresult(res)
+
+                        res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
+                                              retim=False, thinning=1, variant='ehmc')
+                        t.saveresult(res)
 
 
         #t = tomography("shepp.png", 128, theta, 0.05, crimefree=True, commonprefix='/results/')
