@@ -769,11 +769,11 @@ if __name__ == "__main__":
                 return repr(dict(self))
 
 
-        
-        angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),
-                  'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
-        noises = ( 0.05,)
-        sizes = (1024,)
+        #
+        # angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),
+        #           'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
+        # noises = ( 0.05,)
+        # sizes = (1024,)
 
         #
         # alphas = np.geomspace(0.1,1000,15)
@@ -892,6 +892,8 @@ if __name__ == "__main__":
         haaralpha = {"sparsestwhole": {1024: {0.05: 1.3894954943731375}}, "sparsewhole": {1024: {0.05: 1.3894954943731375}}, "whole": {1024: {0.05: 3.1622776601683795}}, "sparsestlimited": {1024: {0.05: 1.3894954943731375}}, "sparselimited": {1024: {0.05: 3.1622776601683795}}, "limited": {1024: {0.05: 3.1622776601683795}}}
 
         angles = {'sparsewhole': 45, 'sparselimited': (0, 45, 45) }
+        noises = (0.05,)
+        sizes = (1024,)
 
         for _ in range(0,1):
             for size in sizes:
