@@ -256,7 +256,7 @@ def buildtree(theta,r,logu,v,j,epsilon,theta0,r0,Q,initialdr,currgrad):
 
             alfatilde = alfatilde + alfatildetilde
             nalfatilde = nalfatilde + nalfatildetilde
-            stilde = stildetilde*(np.dot((thetaplus -thetaminus).T,rminus) >= 0)*(np.dot((thetaplus -thetaminus).T,rplus)>=0)
+            stilde = stildetilde*(float(np.dot((thetaplus -thetaminus).T,rminus) >= 0)*(np.dot((thetaplus -thetaminus).T,rplus)>=0))
             ntilde = ntilde + ntildetilde
         return thetaminus,rminus,thetaplus,rplus,thetatilde,ntilde,stilde,alfatilde,nalfatilde,currdensitytilde,currgradtilde,gradplus,gradminus
 
@@ -277,7 +277,7 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
         theta = np.zeros((dim, M//thinning + 1))
         theta[:, 0] = np.ravel(theta0)
     delta = de
-    currdensity = Q.logdensity(theta0, Q)
+    currdensity = float(Q.logdensity(theta0, Q))
     currgrad = Q.gradi(theta0, Q)
     if (epsilonwanted is None):
         epsilon = initialeps(theta0,Q,currdensity,currgrad)
@@ -296,8 +296,8 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
     for i in range(1,M+1):
         bar.update(1)
         r0 = np.random.randn(dim, 1)
-        logu = (currdensity - 0.5*np.dot(r0.T,r0))+np.log(np.random.rand())
-        initialdr = currdensity - 0.5 * np.dot(r0.T, r0)
+        logu = float(currdensity - 0.5*np.dot(r0.T,r0))+np.log(np.random.rand())
+        initialdr = float(currdensity - 0.5 * np.dot(r0.T, r0))
         thetaminus = np.reshape(theta0,(-1,1))
         thetaplus = np.reshape(theta0,(-1,1))
         rminus = r0
@@ -327,7 +327,7 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
                     currgrad = currgradtilde
 
             n = n+ntilde
-            s = stilde*(np.dot((thetaplus -thetaminus).T,rminus) >= 0)*(np.dot((thetaplus -thetaminus).T,rplus) >= 0)
+            s = stilde*(float(np.dot((thetaplus -thetaminus).T,rminus) >= 0)*(np.dot((thetaplus -thetaminus).T,rplus) >= 0))
             j = j +1
         
        
@@ -360,29 +360,28 @@ def nonuts_hmc(M,theta0,Q,aburn=10,L=50,aexp=50,adaptcoeff=0.6,delta=0.65,cmonly
     x = theta0
     acc = 0;
     ratio = 0;
-    E = Q.logdensity(theta0, Q)
-    currdensity = E
-    currgrad = Q.gradi(theta0, Q)
+    E = float(Q.logdensity(x, Q))
+    currgrad = Q.gradi(x, Q)
    
-    epsilon = initialeps(theta0,Q,currdensity,currgrad)
+    epsilon = initialeps(x,Q,E,currgrad)
     
     if (aburn >= M):
         raise Exception('Madapt <= M.')
         
     if (cmonly == False):
         theta = np.zeros((dim, M//thinning + 1))
-        theta[:, 0] = np.ravel(theta0)  
+        theta[:, 0] = np.ravel(x)  
 
     for k in range(M):
         bar.update(1)
         p = np.random.randn(dim, 1)
 
-        x_old = x;
-        p_old = p;
+        x_old = np.copy(x);
+        p_old = np.copy(p);
 
         # Recalculate Hamiltonian
         E_old = E;
-        H_old = E_old - 0.5 * np.dot(p.T,p);
+        H_old = float(E_old - 0.5 * np.dot(p.T,p));
 
         # First half-step of leapfrog.
         grad = Q.gradi(x, Q);
@@ -402,8 +401,8 @@ def nonuts_hmc(M,theta0,Q,aburn=10,L=50,aexp=50,adaptcoeff=0.6,delta=0.65,cmonly
         p = p + 0.5 * epsilon*grad;
 
         # Energy and Hamiltonian
-        E = Q.logdensity(x, Q)
-        H =  E - 0.5 * np.dot(p.T,p);
+        E = float(Q.logdensity(x, Q))
+        H =  float(E - 0.5 * np.dot(p.T,p));
 
         a = (H  -H_old);
         print(k,epsilon,acc/(k+1))
@@ -449,13 +448,13 @@ def nonuts_hmc(M,theta0,Q,aburn=10,L=50,aexp=50,adaptcoeff=0.6,delta=0.65,cmonly
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True)
-def leapfrogL(theta,r,epsilon,L,Q):
+def leapfrogL(theta,r,epsilon,L,Q,mass):
     grad = Q.gradi(theta, Q);
     r = r + 0.5 * epsilon*grad;
 
     # Full leapfrog steps.
     for n in range(L):
-        theta = theta + epsilon*r;
+        theta = theta + epsilon/mass*r;
 
         if n < L-1:
             grad = Q.gradi(theta, Q);
@@ -472,30 +471,30 @@ def leapfrogL(theta,r,epsilon,L,Q):
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True)
-def longestbatch(theta,r,epsilon,L,Q):
+def longestbatch(theta,r,epsilon,L,Q,mass):
     l = 0
-    thetaplus = theta
-    rplus = r
-    thetatilde = theta
-    rtilde = r
+    thetaplus = (theta)
+    rplus = (r)
+    thetatilde = np.copy(theta)
+    rtilde = np.copy(r)
     while (np.dot((thetaplus - theta).T,rplus)) >=0:
         l = l +1
-        thetaplus,rplus = leapfrogL(thetaplus,rplus,epsilon,1,Q)
+        thetaplus,rplus = leapfrogL(thetaplus,rplus,epsilon,1,Q,mass)
         if l == L:
-            thetatilde = thetaplus
-            rtilde = rplus
+            thetatilde = np.copy(thetaplus)
+            rtilde = np.copy(rplus)
     
     return thetatilde, rtilde, l
     
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True)
-def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=False,thinning=1):
+def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=False,thinning=1,mass=1):
     Ltrials = np.int(np.floor(Madapt/2))
     epstrials = np.int(np.ceil(Madapt/2))
     bar = tqdm(total=M+Ltrials+epstrials,file=sys.stdout)
     theta0 = np.reshape(theta0,(-1,1))
-    theta00 = theta0
+    theta00 = np.copy(theta0)
     dim = theta0.shape[0]
     cmestimate = np.zeros((dim,1))
     x = theta0
@@ -503,12 +502,11 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
     ratio = 0;
     aexp=25
     adaptcoeff=0.6
-    E = Q.logdensity(theta0, Q)
-    currdensity = E
+    E = float(Q.logdensity(theta0, Q))
     currgrad = Q.gradi(theta0, Q)
     L_list = np.zeros((Ltrials,))
    
-    epsilon = initialeps(theta0,Q,currdensity,currgrad)
+    epsilon = initialeps(theta0,Q,E,currgrad)
     myy = np.log(10*epsilon)
     Hhat = 0.0
     lambdhat = 1.0
@@ -520,26 +518,27 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
      
     for i in range(1,epstrials):
         bar.update(1)
-        r = np.random.randn(dim, 1)
-        E_old = E
-        H_old = E_old - 0.5 * np.dot(r.T,r)
-        thetatilde, rtilde, Li = longestbatch(theta0,r,epsilon,L,Q)
+        p = np.sqrt(mass)*np.random.randn(dim, 1)
+        x_old = np.copy(x);
+        E_old = float(E);
+        H_old = float(E - 0.5/mass * np.dot(p.T,p));
+        thetatilde, rtilde, Li = longestbatch(x,p,epsilon,L,Q,mass)
         if (Li < L):
-            thetatilde, rtilde = leapfrogL(thetatilde,rtilde,epsilon,L-Li,Q)
+            thetatilde, rtilde = leapfrogL(thetatilde,rtilde,epsilon,L-Li,Q,mass)
         
-        E = Q.logdensity(thetatilde, Q)
-        H = E - 0.5 * np.dot(rtilde.T,rtilde)
+        E = float(Q.logdensity(thetatilde, Q))
+        H = float(E - 0.5/mass * np.dot(rtilde.T,rtilde))
         
         curr_acc = 0
-        test_ratio = np.min(np.array([1,np.exp(H-H_old)]))
+        #test_ratio = np.min(np.array([1,np.exp(H-H_old)]))
         if np.log(np.random.rand()) < (H-H_old):
-            theta0 = thetatilde
+            x = thetatilde
             acc = acc + 1;
             curr_acc = 1;
         
         else:
-            E = E_old;
-            H = H_old;
+            E = float(E_old);
+            H = float(H_old);
             curr_acc = 0;
         
         # Adapt epsilon 
@@ -560,23 +559,27 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
         #epsilon = epsilonhat
     
         #print(i,Hhat,epsilon,Li)
-        
+        x = x
+        E = float(Q.logdensity(x, Q))
     for i in range(Ltrials):
         bar.update(1)
-        r = np.random.randn(dim, 1)
-        E_old = E
-        H_old = E_old - 0.5 * np.dot(r.T,r)
-        thetatilde, rtilde, Li = longestbatch(theta0,r,epsilon,L,Q)
-        if (Li < L):
-            thetatilde, rtilde = leapfrogL(thetatilde,rtilde,epsilon,L-Li,Q)
         
-        E = Q.logdensity(thetatilde, Q)
-        H = E - 0.5 * np.dot(rtilde.T,rtilde)
+        p = np.sqrt(mass)*np.random.randn(dim, 1)
+        #x_old = np.copy(x);
+        E_old = float(E);
+        H_old = float(E - 0.5/mass * np.dot(p.T,p));
+        
+        thetatilde, rtilde, Li = longestbatch(x,p,epsilon,L,Q,mass)
+        if (Li < L):
+            thetatilde, rtilde = leapfrogL(thetatilde,rtilde,epsilon,L-Li,Q,mass)
+        
+        E = float(Q.logdensity(thetatilde, Q))
+        H = float(E - 0.5/mass * np.dot(rtilde.T,rtilde))
         
         curr_acc = 0
-        test_ratio = np.min(np.array([1,np.exp(H-H_old)]))
+        #test_ratio = np.min(np.array([1,np.exp(H-H_old)]))
         if np.log(np.random.rand()) < (H-H_old):
-            theta0 = thetatilde
+            x = thetatilde
         
         else:
             E = E_old;
@@ -586,17 +589,17 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
     
         #print(i,epsilon,Li)    
     #exit(0)
-    x = theta00
+    x = np.copy(theta00)
     E = Q.logdensity(x, Q)
     for k in range(1,M+1):
         bar.update(1)
-        p = np.random.randn(dim, 1)
+        p = np.sqrt(mass)*np.random.randn(dim, 1)
 
-        x_old = x;
+        x_old = np.copy(x);
 
         # Recalculate Hamiltonian
-        E_old = E;
-        H_old = E - 0.5 * np.dot(p.T,p);
+        E_old = float(E);
+        H_old = float(E - 0.5/mass * np.dot(p.T,p));
 
         # First half-step of leapfrog.
         grad = Q.gradi(x, Q);
@@ -606,7 +609,7 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
         step = np.int(L_list[step])
         # Full leapfrog steps.
         for n in range(step):
-            x = x + epsilon*p;
+            x = x + epsilon/mass*p;
 
             if n < step-1:
                 grad = Q.gradi(x, Q);
@@ -618,8 +621,8 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
         p = p + 0.5 * epsilon*grad;
 
         # Energy and Hamiltonian
-        E = Q.logdensity(x, Q)
-        H =  E - 0.5 * np.dot(p.T,p);
+        E =  float(Q.logdensity(x, Q))
+        H =  float(E - 0.5/mass * np.dot(p.T,p))
 
         a = (H  -H_old);
         #print(k,step)
