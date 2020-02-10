@@ -489,7 +489,7 @@ def longestbatch(theta,r,epsilon,L,Q,mass):
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True)
-def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=False,thinning=1,mass=1):
+def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=False,thinning=1,mass=1,stepsize=None):
     Ltrials = np.int(np.floor(Madapt/2))
     epstrials = np.int(np.ceil(Madapt/2))
     bar = tqdm(total=M+Ltrials+epstrials,file=sys.stdout)
@@ -505,62 +505,65 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
     E = float(Q.logdensity(theta0, Q))
     currgrad = Q.gradi(theta0, Q)
     L_list = np.zeros((Ltrials,))
-   
-    epsilon = initialeps(theta0,Q,E,currgrad)
+    
+    if stepsize is  None:
+        epsilon = initialeps(theta0,Q,E,currgrad)
+    else:
+        epsilon = stepsize
     myy = np.log(10*epsilon)
     Hhat = 0.0
-    lambdhat = 1.0
-    lambd = L*epsilon
+    #lambdhat = 1.0
+    #lambd = L*epsilon
         
     if (cmonly == False):
         theta = np.zeros((dim, M//thinning + 1))
         theta[:, 0] = np.ravel(theta0)  
-     
-    for i in range(1,epstrials):
-        bar.update(1)
-        p = np.sqrt(mass)*np.random.randn(dim, 1)
-        x_old = np.copy(x);
-        E_old = float(E);
-        H_old = float(E - 0.5/mass * np.dot(p.T,p));
-        thetatilde, rtilde, Li = longestbatch(x,p,epsilon,L,Q,mass)
-        if (Li < L):
-            thetatilde, rtilde = leapfrogL(thetatilde,rtilde,epsilon,L-Li,Q,mass)
-        
-        E = float(Q.logdensity(thetatilde, Q))
-        H = float(E - 0.5/mass * np.dot(rtilde.T,rtilde))
-        
-        curr_acc = 0
-        #test_ratio = np.min(np.array([1,np.exp(H-H_old)]))
-        if np.log(np.random.rand()) < (H-H_old):
-            x = thetatilde
-            acc = acc + 1;
-            curr_acc = 1;
-        
-        else:
-            E = float(E_old);
-            H = float(H_old);
-            curr_acc = 0;
-        
-        # Adapt epsilon 
-        ratio = adaptcoeff * ratio + (1 - adaptcoeff) * curr_acc;
-        cntl = 0.5 * np.exp(-(i+1) / aexp); # Diminishing adaptation
-        epsilon = np.exp(np.log(epsilon) + cntl * (ratio - delta));
-        
-        
-        #Hhat = (1.0-1.0/(i+t0))*Hhat + 1.0/(i+t0)*(delta - test_ratio)
-        #lambd =  np.exp(myy -np.sqrt(i)/gamma*Hhat)
-        #lambdhat = np.exp(i**(-kappa)*np.log(lambd)+(1.0-i**(-kappa))*np.log(lambdhat))
-        #epsilon = lambd/Li
-        #epsilon = np.exp(myy -np.sqrt(i)/gamma*Hhat)
-        #epsilonhat = np.exp(i**(-kappa)*np.log(epsilon)+(1.0-i**(-kappa))*np.log(epsilonhat))
+    if (stepsize is None): 
+        for i in range(1,epstrials):
+            bar.update(1)
+            p = np.sqrt(mass)*np.random.randn(dim, 1)
+            x_old = np.copy(x);
+            E_old = float(E);
+            H_old = float(E - 0.5/mass * np.dot(p.T,p));
+            thetatilde, rtilde, Li = longestbatch(x,p,epsilon,L,Q,mass)
+            if (Li < L):
+                thetatilde, rtilde = leapfrogL(thetatilde,rtilde,epsilon,L-Li,Q,mass)
 
-        #else:
-        #pass
-        #epsilon = epsilonhat
-    
-        #print(i,Hhat,epsilon,Li)
-        x = x
-        E = float(Q.logdensity(x, Q))
+            E = float(Q.logdensity(thetatilde, Q))
+            H = float(E - 0.5/mass * np.dot(rtilde.T,rtilde))
+
+            curr_acc = 0
+            #test_ratio = np.min(np.array([1,np.exp(H-H_old)]))
+            if np.log(np.random.rand()) < (H-H_old):
+                x = thetatilde
+                acc = acc + 1;
+                curr_acc = 1;
+
+            else:
+                E = float(E_old);
+                H = float(H_old);
+                curr_acc = 0;
+
+            # Adapt epsilon 
+            ratio = adaptcoeff * ratio + (1 - adaptcoeff) * curr_acc;
+            cntl = 0.5 * np.exp(-(i+1) / aexp); # Diminishing adaptation
+            epsilon = np.exp(np.log(epsilon) + cntl * (ratio - delta));
+
+
+            #Hhat = (1.0-1.0/(i+t0))*Hhat + 1.0/(i+t0)*(delta - test_ratio)
+            #lambd =  np.exp(myy -np.sqrt(i)/gamma*Hhat)
+            #lambdhat = np.exp(i**(-kappa)*np.log(lambd)+(1.0-i**(-kappa))*np.log(lambdhat))
+            #epsilon = lambd/Li
+            #epsilon = np.exp(myy -np.sqrt(i)/gamma*Hhat)
+            #epsilonhat = np.exp(i**(-kappa)*np.log(epsilon)+(1.0-i**(-kappa))*np.log(epsilonhat))
+
+            #else:
+            #pass
+            #epsilon = epsilonhat
+
+            #print(i,Hhat,epsilon,Li)
+            x = x
+            E = float(Q.logdensity(x, Q))
     for i in range(Ltrials):
         bar.update(1)
         
@@ -595,7 +598,7 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
         bar.update(1)
         p = np.sqrt(mass)*np.random.randn(dim, 1)
 
-        x_old = np.copy(x);
+        x_old = x;
 
         # Recalculate Hamiltonian
         E_old = float(E);
@@ -680,7 +683,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
     samplebeta = Q.b
     cdef bint cm = cmonly
     
-    np.random.seed(1)
+    #np.random.seed(1)
     dimnumpy = x0.shape[0]
     cdef int dim = dimnumpy
     x = x0

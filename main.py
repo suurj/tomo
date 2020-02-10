@@ -56,131 +56,181 @@ class container:
 
 class tomography:
 
-    def __init__(self, filename, targetsize=128, itheta=50, noise=0.0,  commonprefix="", dimbig = 607, N_thetabig=421, crimefree=False,lhdev=None):
-        self.globalprefix = str(pathlib.Path.cwd()) + commonprefix
-        if not os.path.exists(self.globalprefix):
-            os.makedirs(self.globalprefix)
-        self.filename = filename
-        self.dim = targetsize
-        self.noise = noise
-        self.thetabig = None
-        self.dimbig = dimbig
-        self.N_thetabig = N_thetabig
-        self.N_rbig = math.ceil(np.sqrt(2) * self.dimbig)
-        self.crimefree = crimefree
-        if targetsize > 1100:
-            raise Exception(
-                'Dimensions of the target image are too large (' + str(targetsize) + 'x' + str(targetsize) + ')')
+    def __init__(self, filename="shepp.png", targetsize=128, itheta=50, noise=0.0,  commonprefix="", dimbig = 599, N_thetabig=421, crimefree=False,lhdev=None,dataload=False):
+        if dataload is False:
+            self.globalprefix = str(pathlib.Path.cwd()) + commonprefix
+            if not os.path.exists(self.globalprefix):
+                os.makedirs(self.globalprefix)
+            self.filename = filename
+            self.dim = targetsize
+            self.noise = noise
+            self.thetabig = None
+            self.dimbig = dimbig
+            self.N_thetabig = N_thetabig
+            self.N_rbig = math.ceil(np.sqrt(2) * self.dimbig)
+            self.crimefree = crimefree
+            if targetsize > 1100:
+                raise Exception(
+                    'Dimensions of the target image are too large (' + str(targetsize) + 'x' + str(targetsize) + ')')
 
-        img = imread(filename, as_gray=True)
-        (dy, dx) = img.shape
-        if (dy != dx):
-            raise Exception('Image is not rectangular.')
-        
-        self.targetimage = imread(filename, as_gray=True)
-        self.targetimage = resize(self.targetimage, (self.dim, self.dim), anti_aliasing=False, preserve_range=True,
-                            order=1, mode='symmetric')
-        if self.crimefree:
-            image = imread(filename, as_gray=True)
-            image = resize(image, (self.dimbig, self.dimbig), anti_aliasing=False, preserve_range=True,
+            img = self.opendata(filename)
+            (dy, dx) = img.shape
+            if (dy != dx):
+                raise Exception('Image is not rectangular.')
+
+            self.targetimage = self.opendata(filename)
+            self.targetimage = resize(self.targetimage, (self.dim, self.dim), anti_aliasing=False, preserve_range=True,
                                 order=1, mode='symmetric')
-            (self.simsize, _) = image.shape
+            if self.crimefree:
+                image = self.opendata(filename)
+                image = resize(image, (self.dimbig, self.dimbig), anti_aliasing=False, preserve_range=True,
+                                    order=1, mode='symmetric')
+                (self.simsize, _) = image.shape
 
-        else:
-            image = imread(filename, as_gray=True)
-            image = resize(image, (targetsize, targetsize), anti_aliasing=False, preserve_range=True, order=1,
-                                mode='symmetric')
-            (self.simsize, _) = image.shape
+            else:
+                image = self.opendata(filename)
+                image = resize(image, (targetsize, targetsize), anti_aliasing=False, preserve_range=True, order=1,
+                                    mode='symmetric')
+                (self.simsize, _) = image.shape
 
-        self.flattened = np.reshape(image, (-1, 1))
+            self.flattened = np.reshape(image, (-1, 1))
 
-        if isinstance(itheta, (int, np.int32, np.int64)) or (isinstance(itheta,(list,tuple)) and len(itheta) == 1):
-            if  isinstance(itheta,(list,tuple)):
-                itheta = itheta[0]
-            self.theta = np.linspace(0., 180., itheta, endpoint=False)
-            self.theta = self.theta / 360 * 2 * np.pi
-            (self.N_r, self.N_theta) = (math.ceil(np.sqrt(2) * self.dim), itheta)
-            self.rhoo = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_r, endpoint=True)
-            fname = 'radonmatrix/0_180-{0}x{1}.npz'.format(str(self.dim), str(self.N_theta))
+            if isinstance(itheta, (int, np.int32, np.int64)) or (isinstance(itheta,(list,tuple)) and len(itheta) == 1):
+                if  isinstance(itheta,(list,tuple)):
+                    itheta = itheta[0]
+                self.theta = np.linspace(0., 180., itheta, endpoint=False)
+                self.theta = self.theta / 360 * 2 * np.pi
+                (self.N_r, self.N_theta) = (math.ceil(np.sqrt(2) * self.dim), itheta)
+                self.rhoo = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_r, endpoint=True)
+                fname = 'radonmatrix/0_180-{0}x{1}.npz'.format(str(self.dim), str(self.N_theta))
+
+                if self.crimefree:
+                    self.thetabig = np.linspace(0, 180, self.N_thetabig, endpoint=False)
+                    self.thetabig = self.thetabig / 360 * 2 * np.pi
+                    self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
+
+            elif len(itheta) == 3:
+                self.theta = np.linspace(itheta[0], itheta[1], itheta[2], endpoint=False)
+                self.theta = self.theta / 360 * 2 * np.pi
+                (self.N_r, self.N_theta) = (
+                    math.ceil(np.sqrt(2) * targetsize), itheta[2])
+                self.rhoo = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_r, endpoint=True)
+                fname = 'radonmatrix/{0}_{1}-{2}x{3}.npz'.format(str(itheta[0]), str(itheta[1]), str(self.dim), str(self.N_theta))
+
+                if (self.crimefree):
+                    self.thetabig = np.linspace(itheta[0], itheta[1], self.N_thetabig, endpoint=False)
+                    self.thetabig = self.thetabig / 360 * 2 * np.pi
+                    self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
+
+            else:
+                raise Exception('Invalid angle input.')
+
+            if not os.path.isfile(fname):
+                path = os.path.dirname(os.path.abspath(fname))
+                if not os.path.exists(path):
+                    os.makedirs(path)
+
+                from matrices import radonmatrix
+                self.radonoperator = radonmatrix(self.dim, self.theta)
+                sp.save_npz(fname, self.radonoperator)
+
+            # In the case of inverse-crime free tomography,
+            # one might use the Radon tool from scikit-image
+            # or construct another Radon matrix and calculate a sinogram with that. The former is definitely faster and also preferred,
+            # since different methods are used to simulate and reconcstruct the image.
+
+            #if crimefree and (not os.path.isfile(fnamebig)):
+            #    from matrices import radonmatrix
+
+            #    self.radonoperatorbig = radonmatrix(self.dimbig, self.thetabig)
+            #    sp.save_npz(fnamebig, self.radonoperatorbig)
+
+            self.radonoperator = sp.load_npz(fname)
+            self.radonoperator = sp.csc_matrix(self.radonoperator)
+            self.radonoperator = self.radonoperator / self.dim
 
             if self.crimefree:
-                self.thetabig = np.linspace(0, 180, self.N_thetabig, endpoint=False)
-                self.thetabig = self.thetabig / 360 * 2 * np.pi
-                self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
+                #self.radonoperatorbig = sp.load_npz(fnamebig) / self.dimbig
+                #simulated = self.radonoperatorbig@self.flattened
+                #simulated = np.reshape(simulated,(self.N_rbig,self.N_thetabig))
+                simulated = self.radonww(image,self.thetabig/ ( 2 * np.pi)*360)/self.dimbig
+                simulated = np.reshape(simulated,(-1,1))
 
-        elif len(itheta) == 3:
-            self.theta = np.linspace(itheta[0], itheta[1], itheta[2], endpoint=False)
-            self.theta = self.theta / 360 * 2 * np.pi
-            (self.N_r, self.N_theta) = (
-                math.ceil(np.sqrt(2) * targetsize), itheta[2])
-            self.rhoo = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_r, endpoint=True)
-            fname = 'radonmatrix/{0}_{1}-{2}x{3}.npz'.format(str(itheta[0]), str(itheta[1]), str(self.dim), str(self.N_theta))
+                maxvalue = np.max(simulated)
+                simulated = simulated + maxvalue * self.noise * np.random.randn(self.N_rbig * self.N_thetabig, 1)
+                self.sgramsim = np.reshape(simulated, (self.N_rbig, self.N_thetabig))
+                interp = interpolate.RectBivariateSpline(-self.rhoobig, self.thetabig, self.sgramsim,kx=1,ky=1)
+                self.sgram = interp(-self.rhoo, self.theta)
+                self.lines = np.reshape(self.sgram, (-1, 1))
 
-            if (self.crimefree):
-                self.thetabig = np.linspace(itheta[0], itheta[1], self.N_thetabig, endpoint=False)
-                self.thetabig = self.thetabig / 360 * 2 * np.pi
-                self.rhoobig = np.linspace(np.sqrt(2), -np.sqrt(2), self.N_rbig, endpoint=True)
-
-        else:
-            raise Exception('Invalid angle input.')
-
-        if not os.path.isfile(fname):
-            path = os.path.dirname(os.path.abspath(fname))
-            if not os.path.exists(path):
-                os.makedirs(path)
-
-            from matrices import radonmatrix
-            self.radonoperator = radonmatrix(self.dim, self.theta)
-            sp.save_npz(fname, self.radonoperator)
-
-        # In the case of inverse-crime free tomography,
-        # one might use the Radon tool from scikit-image
-        # or construct another Radon matrix and calculate a sinogram with that. The former is definitely faster and also preferred,
-        # since different methods are used to simulate and reconcstruct the image.
-
-        #if crimefree and (not os.path.isfile(fnamebig)):
-        #    from matrices import radonmatrix
-
-        #    self.radonoperatorbig = radonmatrix(self.dimbig, self.thetabig)
-        #    sp.save_npz(fnamebig, self.radonoperatorbig)
-
-        self.radonoperator = sp.load_npz(fname)
-        self.radonoperator = sp.csc_matrix(self.radonoperator)
-        self.radonoperator = self.radonoperator / self.dim
-
-        if self.crimefree:
-            #self.radonoperatorbig = sp.load_npz(fnamebig) / self.dimbig
-            #simulated = self.radonoperatorbig@self.flattened
-            #simulated = np.reshape(simulated,(self.N_rbig,self.N_thetabig))
-            simulated = self.radonww(image,self.thetabig/ ( 2 * np.pi)*360)/self.dimbig
-            simulated = np.reshape(simulated,(-1,1))
-
-            maxvalue = np.max(simulated)
-            simulated = simulated + maxvalue * self.noise * np.random.randn(self.N_rbig * self.N_thetabig, 1)
-            self.sgramsim = np.reshape(simulated, (self.N_rbig, self.N_thetabig))
-            interp = interpolate.RectBivariateSpline(-self.rhoobig, self.thetabig, self.sgramsim,kx=1,ky=1)
-            self.sgram = interp(-self.rhoo, self.theta)
-            self.lines = np.reshape(self.sgram, (-1, 1))
-
-        else:
-            simulated = self.radonoperator @ self.flattened
-            maxvalue = np.max(simulated)
-            noiserealization = np.random.randn(self.N_r * self.N_theta, 1)
-            self.lines = simulated + maxvalue * self.noise * noiserealization
-            self.sgram = np.reshape(self.lines, (self.N_r, self.N_theta))
-
-        if lhdev is None:
-            if self.noise == 0:
-                lhdev = 0.01
             else:
-                lhdev = self.noise
-        self.lhsigmsq = (maxvalue * lhdev) ** 2
-        self.Q = argumentspack(M=self.radonoperator, y=self.lines, b=0.01, s2=self.lhsigmsq)
-        self.pbar = None
-        self.method =   'L-BFGS-B'
+                simulated = self.radonoperator @ self.flattened
+                maxvalue = np.max(simulated)
+                noiserealization = np.random.randn(self.N_r * self.N_theta, 1)
+                self.lines = simulated + maxvalue * self.noise * noiserealization
+                self.sgram = np.reshape(self.lines, (self.N_r, self.N_theta))
+
+            if lhdev is None:
+                if self.noise == 0:
+                    lhdev = 0.01
+                else:
+                    lhdev = self.noise
+            self.lhsigmsq = (maxvalue * lhdev) ** 2
+            self.Q = argumentspack(M=self.radonoperator, y=self.lines, b=0.01, s2=self.lhsigmsq)
+            self.pbar = None
+            self.method =   'L-BFGS-B'
+
+        else:
+            self.crimefree = True
+            self.noise = 0.05
+            self.filename = ""
+            self.targetimage = ""
+            self.dim = None
+            self.globalprefix =""
+            self.theta = 360
+
+    def opendata(self,fname):
+            if fname.endswith(('.mat')):
+                import scipy.io
+                image = np.array(scipy.io.loadmat(fname)['A'])
+            else:
+                image=imread(fname, as_gray=True)
+            return image
 
     def mincb(self,_):
         self.pbar.update(1)
+
+    def dataload(self,Mfile,Mname,dfile,dname,scaling=1,imsize=128):
+        import scipy.io
+        try:
+            matrix = scipy.io.loadmat(Mfile)[Mname]
+            sino = scipy.io.loadmat(dfile)[dname]
+        except:
+            import h5py
+
+            with h5py.File(dfile, 'r') as f:
+                a = list(f.keys())
+                sino = np.double(np.array(f[dname]))
+                s = sino.shape[0]*sino.shape[1]
+
+            with h5py.File(Mfile, 'r') as f:
+                a = list(f.keys())
+                data = f[Mname]['data']
+                ir = f[Mname]['ir']
+                jc = f[Mname]['jc']
+                matrix = sp.csc_matrix((data, ir, jc),shape=(s,imsize**2))
+
+        plt.imshow(sino)
+        plt.show()
+        self.radonoperator =  sp.csc_matrix(matrix)
+        self.dim = np.int(np.sqrt(self.radonoperator.shape[1]))
+        self.sgram = np.double(sino)
+        self.lines = np.reshape(self.sgram,(-1,1),order='F')*scaling
+        self.lhsigmsq = (np.max(self.lines) * 0.05) ** 2
+        self.Q = argumentspack(M=self.radonoperator, y=self.lines, b=0.001, s2=self.lhsigmsq)
+        self.pbar = None
+        self.method = 'L-BFGS-B'
+
 
     def map_tikhonov(self, alpha=1.0, order=1,maxiter=400,retim=True):
         res = None
@@ -188,20 +238,45 @@ class tomography:
             res = container(alpha=alpha,crimefree=self.crimefree, prior='tikhonov', levels=order, method='map', noise=self.noise, imagefilename=self.filename,
                             target=self.targetimage, targetsize=self.dim,globalprefix=self.globalprefix, theta=self.theta/(2*np.pi)*360)
         if (order == 2):
-            regvalues = np.array([2, -1, -1, -1, -1])
-            offsets = np.array([0, 1, -1, self.dim - 1, -self.dim + 1])
-            reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+            regN = np.diag([2] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1) + np.diag([-1] * (self.dim - 1), -1);
+            regN = regN[1:-1, :]
+            regN = sp.csc_matrix(regN);
+            # regvalues = np.array([2, -1, -1, -1, -1])
+            # offsets = np.array([0, 1, -1, self.dim - 1, -self.dim + 1])
+            # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
         else:
-            regvalues = np.array([1, -1, 1])
-            offsets = np.array([-self.dim + 1, 0, 1])
-            reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        regx = sp.kron(sp.eye(self.dim), reg1d)
-        regy = sp.kron(reg1d, sp.eye(self.dim))
-        alpha = alpha
-        self.radonoperator = sp.csc_matrix(self.radonoperator)
+            regN = np.diag([1] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1);
+            regN = sp.csc_matrix(regN[0:-1, :])
+            # regvalues = np.array([1, -1, 1])
+            # offsets = np.array([-self.dim + 1, 0, 1])
+            # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+            # reg1d = sp.csc_matrix(reg1d)
+            # reg1d[self.dim-1,self.dim-1] = 0
+            # print(np.linalg.matrix_rank(reg1d.todense()))
+        help = np.zeros((2, self.dim));
+        help[0, 0] = 1;
+        help[1, self.dim - 1] = 1
+        help2 = np.hstack([np.zeros((self.dim - 2, 1)), np.eye(self.dim - 2), np.zeros((self.dim - 2, 1))])
+        # regvalues = np.array([1, -1, 1])
+        # offsets = np.array([-self.dim + 1, 0, 1])
+        # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        # reg1d = sp.csc_matrix(reg1d)
+        # reg1d[self.dim-1,self.dim-1] = 0
+        # print(np.linalg.matrix_rank(reg1d.todense()))
+        # regx = sp.kron(sp.eye(self.dim), reg1d)
+        # regy = sp.kron(reg1d, sp.eye(self.dim))
+        # regx = sp.csc_matrix(regx)
+        # regy = sp.csc_matrix(regy)
+        regx = sp.kron(sp.eye(self.dim), regN)
+        regy = sp.kron(regN, sp.eye(self.dim))
         regx = sp.csc_matrix(regx)
         regy = sp.csc_matrix(regy)
-        combined = sp.vstack([regy, regx], format='csc')
+        regx2 = sp.kron(sp.csc_matrix(help2), sp.csc_matrix(help))
+        regy2 = sp.kron(sp.csc_matrix(help), sp.eye(self.dim))
+        self.radonoperator = sp.csc_matrix(self.radonoperator)
+        alpha = alpha
+        # combined = sp.vstack([regy, regx], format='csc')
+        combined = sp.vstack([regy, regx, regx2, regy2], format='csc')
         empty = sp.csc_matrix((1, self.dim * self.dim))
         self.Q.Lx = combined
         self.Q.Ly = empty
@@ -236,17 +311,38 @@ class tomography:
         if not retim:
             res = container(alpha=alpha,crimefree=self.crimefree, prior='tv', method='map', noise=self.noise, imagefilename=self.filename,
                             target=self.targetimage, targetsize=self.dim,globalprefix=self.globalprefix, theta=self.theta/(2*np.pi)*360)
-        regvalues = np.array([1, -1, 1])
-        offsets = np.array([-self.dim + 1, 0, 1])
-        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        regx = sp.kron(sp.eye(self.dim), reg1d)
-        regy = sp.kron(reg1d, sp.eye(self.dim))
+        regN = np.diag([1] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1);
+        regN = sp.csc_matrix(regN[0:-1, :])
+        help = np.zeros((2, self.dim));
+        help[0, 0] = 1;
+        help[1, self.dim - 1] = 1
+        help2 = np.hstack([np.zeros((self.dim - 2, 1)), np.eye(self.dim - 2), np.zeros((self.dim - 2, 1))])
+        # regvalues = np.array([1, -1, 1])
+        # offsets = np.array([-self.dim + 1, 0, 1])
+        # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        # reg1d = sp.csc_matrix(reg1d)
+        # reg1d[self.dim-1,self.dim-1] = 0
+        # print(np.linalg.matrix_rank(reg1d.todense()))
+        # regx = sp.kron(sp.eye(self.dim), reg1d)
+        # regy = sp.kron(reg1d, sp.eye(self.dim))
+        # regx = sp.csc_matrix(regx)
+        # regy = sp.csc_matrix(regy)
+        regx = sp.kron(sp.eye(self.dim), regN)
+        regy = sp.kron(regN, sp.eye(self.dim))
         regx = sp.csc_matrix(regx)
         regy = sp.csc_matrix(regy)
+        regx2 = sp.kron(sp.csc_matrix(help2), sp.csc_matrix(help))
+        regy2 = sp.kron(sp.csc_matrix(help), sp.eye(self.dim))
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         alpha = alpha
-        combined = sp.vstack([regy, regx], format='csc')
+        # combined = sp.vstack([regy, regx], format='csc')
+        combined = sp.vstack([regy, regx, regx2, regy2], format='csc')
         empty = sp.csc_matrix((1, self.dim * self.dim))
+        #total = np.vstack((self.radonoperator.todense(),combined.todense()))
+        #print(total)
+        #print(total.shape)
+        #print(np.linalg.matrix_rank(total))
+        #exit(0)
         self.Q.Lx = combined
         self.Q.Ly = empty
         self.Q.a = alpha
@@ -280,16 +376,32 @@ class tomography:
         res = None
         if not retim:
             res = container(alpha=alpha,crimefree=self.crimefree,prior='cauchy',method='map',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
-        regvalues = np.array([1, -1, 1])
-        offsets = np.array([-self.dim + 1, 0, 1])
-        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        regx = sp.kron(sp.eye(self.dim), reg1d)
-        regy = sp.kron(reg1d, sp.eye(self.dim))
+        regN = np.diag([1] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1);
+        regN = sp.csc_matrix(regN[0:-1, :])
+        help = np.zeros((2, self.dim));
+        help[0, 0] = 1;
+        help[1, self.dim - 1] = 1
+        help2 = np.hstack([np.zeros((self.dim - 2, 1)), np.eye(self.dim - 2), np.zeros((self.dim - 2, 1))])
+        # regvalues = np.array([1, -1, 1])
+        # offsets = np.array([-self.dim + 1, 0, 1])
+        # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        # reg1d = sp.csc_matrix(reg1d)
+        # reg1d[self.dim-1,self.dim-1] = 0
+        # print(np.linalg.matrix_rank(reg1d.todense()))
+        # regx = sp.kron(sp.eye(self.dim), reg1d)
+        # regy = sp.kron(reg1d, sp.eye(self.dim))
+        # regx = sp.csc_matrix(regx)
+        # regy = sp.csc_matrix(regy)
+        regx = sp.kron(sp.eye(self.dim), regN)
+        regy = sp.kron(regN, sp.eye(self.dim))
         regx = sp.csc_matrix(regx)
         regy = sp.csc_matrix(regy)
+        regx2 = sp.kron(sp.csc_matrix(help2), sp.csc_matrix(help))
+        regy2 = sp.kron(sp.csc_matrix(help), sp.eye(self.dim))
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         alpha = alpha
-        combined = sp.vstack([regy, regx], format='csc')
+        # combined = sp.vstack([regy, regx], format='csc')
+        combined = sp.vstack([regy, regx, regx2, regy2], format='csc')
         empty = sp.csc_matrix((1, self.dim * self.dim))
         self.Q.Lx = combined
         self.Q.Ly = empty
@@ -363,18 +475,45 @@ class tomography:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tikhonov',method=variant,levels=order,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from cyt import hmc, ehmc
         if (order == 2):
-            regvalues = np.array([2, -1, -1, -1, -1])
-            offsets = np.array([0, 1, -1, self.dim - 1, -self.dim + 1])
-            reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+            regN = np.diag([2] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1) + np.diag([-1] * (self.dim - 1), -1); regN = regN[1:-1,:]
+            regN = sp.csc_matrix(regN);
+            # regvalues = np.array([2, -1, -1, -1, -1])
+            # offsets = np.array([0, 1, -1, self.dim - 1, -self.dim + 1])
+            # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
         else:
-            regvalues = np.array([1, -1, 1])
-            offsets = np.array([-self.dim + 1, 0, 1])
-            reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        regx = sp.kron(sp.eye(self.dim), reg1d)
-        regy = sp.kron(reg1d, sp.eye(self.dim))
+            regN = np.diag([1] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1);
+            regN = sp.csc_matrix(regN[0:-1, :])
+            # regvalues = np.array([1, -1, 1])
+            # offsets = np.array([-self.dim + 1, 0, 1])
+            # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+            # reg1d = sp.csc_matrix(reg1d)
+            # reg1d[self.dim-1,self.dim-1] = 0
+            # print(np.linalg.matrix_rank(reg1d.todense()))
+        help = np.zeros((2, self.dim));
+        help[0, 0] = 1;
+        help[1, self.dim - 1] = 1
+        help2 = np.hstack([np.zeros((self.dim - 2, 1)), np.eye(self.dim - 2), np.zeros((self.dim - 2, 1))])
+        # regvalues = np.array([1, -1, 1])
+        # offsets = np.array([-self.dim + 1, 0, 1])
+        # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        # reg1d = sp.csc_matrix(reg1d)
+        # reg1d[self.dim-1,self.dim-1] = 0
+        # print(np.linalg.matrix_rank(reg1d.todense()))
+        # regx = sp.kron(sp.eye(self.dim), reg1d)
+        # regy = sp.kron(reg1d, sp.eye(self.dim))
+        # regx = sp.csc_matrix(regx)
+        # regy = sp.csc_matrix(regy)
+        regx = sp.kron(sp.eye(self.dim), regN)
+        regy = sp.kron(regN, sp.eye(self.dim))
+        regx = sp.csc_matrix(regx)
+        regy = sp.csc_matrix(regy)
+        regx2 = sp.kron(sp.csc_matrix(help2), sp.csc_matrix(help))
+        regy2 = sp.kron(sp.csc_matrix(help), sp.eye(self.dim))
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         alpha = alpha
-        combined = sp.vstack([regy, regx], format='csc')
+        # combined = sp.vstack([regy, regx], format='csc')
+        combined = sp.vstack([regy, regx, regx2, regy2], format='csc')
+        #p=np.array(combined.todense())
         empty = sp.csc_matrix((1, self.dim * self.dim))
         self.Q.Lx = combined
         self.Q.Ly = empty
@@ -388,12 +527,12 @@ class tomography:
             x0 = np.reshape(self.map_tikhonov(alpha,maxiter=150),(-1,1))
             x0 = x0 + 0.01*np.random.rand(self.dim*self.dim,1)
         else:
-            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+            x0 = 0.0 + 0.00*np.random.randn(self.dim * self.dim, 1)
         print("Running  " + variant.upper() + " for Tikhonov prior.")
         if (variant == 'hmc'):
             solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning)
         else:
-            solution, chain = ehmc(M, x0, self.Q, Madapt, kappa=0.75, cmonly=retim,thinning=thinning)
+            solution, chain = ehmc(M, x0, self.Q, Madapt, kappa=0.75, cmonly=retim,thinning=thinning,stepsize=0.002)
         #solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, kappa=0.75, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -408,34 +547,50 @@ class tomography:
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method=variant,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from cyt import hmc, ehmc
-        regvalues = np.array([1, -1, 1])
-        offsets = np.array([-self.dim + 1, 0, 1])
-        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        regx = sp.kron(sp.eye(self.dim), reg1d)
-        regy = sp.kron(reg1d, sp.eye(self.dim))
+        regN = np.diag([1] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1);
+        regN = sp.csc_matrix(regN[0:-1, :])
+        help = np.zeros((2, self.dim));
+        help[0, 0] = 1;
+        help[1, self.dim - 1] = 1
+        help2 = np.hstack([np.zeros((self.dim - 2, 1)), np.eye(self.dim - 2), np.zeros((self.dim - 2, 1))])
+        # regvalues = np.array([1, -1, 1])
+        # offsets = np.array([-self.dim + 1, 0, 1])
+        # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        # reg1d = sp.csc_matrix(reg1d)
+        # reg1d[self.dim-1,self.dim-1] = 0
+        # print(np.linalg.matrix_rank(reg1d.todense()))
+        # regx = sp.kron(sp.eye(self.dim), reg1d)
+        # regy = sp.kron(reg1d, sp.eye(self.dim))
+        # regx = sp.csc_matrix(regx)
+        # regy = sp.csc_matrix(regy)
+        regx = sp.kron(sp.eye(self.dim), regN)
+        regy = sp.kron(regN, sp.eye(self.dim))
         regx = sp.csc_matrix(regx)
         regy = sp.csc_matrix(regy)
+        regx2 = sp.kron(sp.csc_matrix(help2), sp.csc_matrix(help))
+        regy2 = sp.kron(sp.csc_matrix(help), sp.eye(self.dim))
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         alpha = alpha
-        combined = sp.vstack([regy, regx], format='csc')
+        # combined = sp.vstack([regy, regx], format='csc')
+        combined = sp.vstack([regy, regx, regx2, regy2], format='csc')
         empty = sp.csc_matrix((1, self.dim * self.dim))
         self.Q.Lx = combined
         self.Q.Ly = empty
         self.Q.a = alpha
         self.Q.s2 = self.lhsigmsq
-        self.Q.b = 0.01
+        self.Q.b = 0.0001
         self.Q.logdensity = ltv
         self.Q.gradi = tv_grad
         if mapstart:
             x0 = np.reshape(self.map_tv(alpha, maxiter=150), (-1, 1))
             x0 = x0 + 0.00001 * np.random.rand(self.dim * self.dim, 1)
         else:
-            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+            x0 = 0.0 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running " + variant.upper() + " for TV prior.")
         if (variant == 'hmc'):
             solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning)
         else:
-            solution, chain = ehmc(M, x0, self.Q, Madapt,  cmonly=retim,thinning=thinning)
+            solution, chain = ehmc(M, x0, self.Q, L=50, Madapt=Madapt,  cmonly=retim,thinning=thinning,stepsize=0.002)
         #solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, kappa=0.75, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -450,16 +605,32 @@ class tomography:
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method=variant,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from cyt import hmc, ehmc
-        regvalues = np.array([1, -1, 1])
-        offsets = np.array([-self.dim + 1, 0, 1])
-        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        regx = sp.kron(sp.eye(self.dim), reg1d)
-        regy = sp.kron(reg1d, sp.eye(self.dim))
+        regN = np.diag([1] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1);
+        regN = sp.csc_matrix(regN[0:-1, :])
+        help = np.zeros((2, self.dim));
+        help[0, 0] = 1;
+        help[1, self.dim - 1] = 1
+        help2 = np.hstack([np.zeros((self.dim - 2, 1)), np.eye(self.dim - 2), np.zeros((self.dim - 2, 1))])
+        # regvalues = np.array([1, -1, 1])
+        # offsets = np.array([-self.dim + 1, 0, 1])
+        # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        # reg1d = sp.csc_matrix(reg1d)
+        # reg1d[self.dim-1,self.dim-1] = 0
+        # print(np.linalg.matrix_rank(reg1d.todense()))
+        # regx = sp.kron(sp.eye(self.dim), reg1d)
+        # regy = sp.kron(reg1d, sp.eye(self.dim))
+        # regx = sp.csc_matrix(regx)
+        # regy = sp.csc_matrix(regy)
+        regx = sp.kron(sp.eye(self.dim), regN)
+        regy = sp.kron(regN, sp.eye(self.dim))
         regx = sp.csc_matrix(regx)
         regy = sp.csc_matrix(regy)
+        regx2 = sp.kron(sp.csc_matrix(help2), sp.csc_matrix(help))
+        regy2 = sp.kron(sp.csc_matrix(help), sp.eye(self.dim))
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         alpha = alpha
-        combined = sp.vstack([regy, regx], format='csc')
+        # combined = sp.vstack([regy, regx], format='csc')
+        combined = sp.vstack([regy, regx, regx2, regy2], format='csc')
         empty = sp.csc_matrix((1, self.dim * self.dim))
         self.Q.Lx = combined
         self.Q.Ly = empty
@@ -472,7 +643,7 @@ class tomography:
             x0 = np.reshape(self.map_cauchy(alpha, maxiter=150), (-1, 1))
             x0 = x0 + 0.00001 * np.random.rand(self.dim * self.dim, 1)
         else:
-            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+            x0 = 0.0 + 0.00*np.random.randn(self.dim * self.dim, 1)
         print("Running " + variant.upper() + " for Cauchy prior.")
         #solution,chain = nonuts_hmc(M, x0, self.Q, 10, L=100, delta=0.65,cmonly=False, thinning=thinning)
         #solution,chain = ehmc(M, x0, self.Q, epstrials=25,Ltrials=25, L=50, delta=0.65,cmonly=False, thinning=thinning)
@@ -537,16 +708,32 @@ class tomography:
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from cyt import mwg_tv as mwgt
-        regvalues = np.array([1, -1, 1])
-        offsets = np.array([-self.dim + 1, 0, 1])
-        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        regx = sp.kron(sp.eye(self.dim), reg1d)
-        regy = sp.kron(reg1d, sp.eye(self.dim))
+        regN = np.diag([1] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1);
+        regN = sp.csc_matrix(regN[0:-1, :])
+        help = np.zeros((2, self.dim));
+        help[0, 0] = 1;
+        help[1, self.dim - 1] = 1
+        help2 = np.hstack([np.zeros((self.dim - 2, 1)), np.eye(self.dim - 2), np.zeros((self.dim - 2, 1))])
+        # regvalues = np.array([1, -1, 1])
+        # offsets = np.array([-self.dim + 1, 0, 1])
+        # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        # reg1d = sp.csc_matrix(reg1d)
+        # reg1d[self.dim-1,self.dim-1] = 0
+        # print(np.linalg.matrix_rank(reg1d.todense()))
+        # regx = sp.kron(sp.eye(self.dim), reg1d)
+        # regy = sp.kron(reg1d, sp.eye(self.dim))
+        # regx = sp.csc_matrix(regx)
+        # regy = sp.csc_matrix(regy)
+        regx = sp.kron(sp.eye(self.dim), regN)
+        regy = sp.kron(regN, sp.eye(self.dim))
         regx = sp.csc_matrix(regx)
         regy = sp.csc_matrix(regy)
+        regx2 = sp.kron(sp.csc_matrix(help2), sp.csc_matrix(help))
+        regy2 = sp.kron(sp.csc_matrix(help), sp.eye(self.dim))
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         alpha = alpha
-        combined = sp.vstack([regy, regx], format='csc')
+        # combined = sp.vstack([regy, regx], format='csc')
+        combined = sp.vstack([regy, regx, regx2, regy2], format='csc')
         empty = sp.csc_matrix((1, self.dim * self.dim))
         self.Q.Lx = combined
         self.Q.Ly = empty
@@ -558,7 +745,7 @@ class tomography:
             x0 = np.reshape(self.map_tv(alpha, maxiter=150), (-1, 1))
             x0 = x0 + 0.000001 * np.random.rand(self.dim * self.dim, 1)
         else:
-            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+            x0 = 0.0 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running MwG MCMC for TV prior.")
         solution,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
@@ -574,16 +761,30 @@ class tomography:
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
         from cyt import mwg_cauchy as mwgc
-        regvalues = np.array([1, -1, 1])
-        offsets = np.array([-self.dim + 1, 0, 1])
-        reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        regx = sp.kron(sp.eye(self.dim), reg1d)
-        regy = sp.kron(reg1d, sp.eye(self.dim))
+        regN = np.diag([1]*self.dim,0) + np.diag([-1]*(self.dim-1),1);
+        regN = sp.csc_matrix(regN[0:-1,:])
+        help = np.zeros((2,self.dim)); help[0,0] = 1; help[1,self.dim-1] = 1
+        help2 = np.hstack([np.zeros((self.dim-2,1)),np.eye(self.dim-2),np.zeros((self.dim-2,1))])
+        #regvalues = np.array([1, -1, 1])
+        #offsets = np.array([-self.dim + 1, 0, 1])
+        # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+        # reg1d = sp.csc_matrix(reg1d)
+        # reg1d[self.dim-1,self.dim-1] = 0
+        # print(np.linalg.matrix_rank(reg1d.todense()))
+        # regx = sp.kron(sp.eye(self.dim), reg1d)
+        # regy = sp.kron(reg1d, sp.eye(self.dim))
+        # regx = sp.csc_matrix(regx)
+        # regy = sp.csc_matrix(regy)
+        regx = sp.kron(sp.eye(self.dim), regN)
+        regy = sp.kron(regN, sp.eye(self.dim))
         regx = sp.csc_matrix(regx)
         regy = sp.csc_matrix(regy)
+        regx2 = sp.kron( sp.csc_matrix(help2), sp.csc_matrix(help))
+        regy2 = sp.kron( sp.csc_matrix(help), sp.eye(self.dim))
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         alpha = alpha
-        combined = sp.vstack([regy, regx], format='csc')
+        #combined = sp.vstack([regy, regx], format='csc')
+        combined = sp.vstack([regy, regx,regx2,regy2], format='csc')
         empty = sp.csc_matrix((1, self.dim * self.dim))
         self.Q.Lx = combined
         self.Q.Ly = empty
@@ -595,7 +796,7 @@ class tomography:
             x0 = np.reshape(self.map_cauchy(alpha, maxiter=150), (-1, 1))
             x0 = x0 + 0.000001 * np.random.rand(self.dim * self.dim, 1)
         else:
-            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+            x0 = 0.0 + 0.00*np.random.randn(self.dim * self.dim, 1)
         print("Running MwG MCMC for Cauchy prior.")
         solution, chain = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim, thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
@@ -632,7 +833,7 @@ class tomography:
             x0 = np.reshape(self.map_wavelet(alpha, type=type,levels=levels, maxiter=150), (-1, 1))
             x0 = x0 + 0.000001 * np.random.rand(self.dim * self.dim, 1)
         else:
-            x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
+            x0 = 0.0 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running MwG MCMC for Besov prior (" + type + ' '  + str(levels) + ').' )
         solution,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
@@ -700,15 +901,15 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--file-name', default="shepp.png", type=str, help='Image filename. Default=shepp.png')
-    parser.add_argument('--targetsize', default=64, type=int, help='Input image is scaled to this size. Default=64')
+    parser.add_argument('--targetsize', default=128, type=int, help='Input image is scaled to this size. Default=64')
     parser.add_argument('--crimefree', default=False, type=bool, help='Simulate sinogram with larger grid and interpolate. Default=False')
-    parser.add_argument('--meas-noise', default=0.01, type=float, help='Measurement noise. Default=0.01')
-    parser.add_argument('--itheta', default=50,nargs="+", type=int, help='Range and/or number of radon measurement '
+    parser.add_argument('--meas-noise', default=0.001, type=float, help='Measurement noise. Default=0.015')
+    parser.add_argument('--itheta', default=180,nargs="+", type=int, help='Range and/or number of radon measurement '
     'angles in degrees. One must enter either 3 values (start angle, end angle, number of angles) or just the number of angles, in case the range 0-180 is assumed. Default=50')
     parser.add_argument('--globalprefix', default="/results/", type=str, help='Relative prefix to the script itself, if one wants to save the results. Default= /results/')
     parser.add_argument('--sampler', default="map", type=str, help='Method to use: hmc, mwg or map. Default= map')
     parser.add_argument('--levels', default=None, type=int, help='Number of DWT levels to be used. Default=None means automatic.')
-    parser.add_argument('--prior', default="cauchy", type=str,
+    parser.add_argument('--prior', default="tikhonov", type=str,
                         help='Prior to use: tikhonov, cauchy, tv or wavelet. Default= cauchy')
     parser.add_argument('--wave', default="haar", type=str, help='DWT type to use with wavelets. Default=haar')
     parser.add_argument('--samples-num', default=200, type=int,
@@ -716,13 +917,14 @@ if __name__ == "__main__":
     parser.add_argument('--thinning', default=1, type=int,
                         help='Thinning factor for MCMC methods.  Default=1 is suitable for HMC, MwG might need thinning between 10-500. ')
     parser.add_argument('--adapt-num', default=50, type=int, help='Number of adaptations in MCMC. Default=50, which roughly suits for HMC.')
-    parser.add_argument('--alpha', default=1.0, type=float,
+    parser.add_argument('--dataload', default=False, action='store_true', help='Use external data. Default=False')
+    parser.add_argument('--alpha', default=10, type=float,
                         help='Prior alpha (regulator constant). Default=1.0, which is rather bad for all priors.')
-    parser.add_argument('--omit', default=False, type=bool,
+    parser.add_argument('--omit', default=False, action='store_false',
                         help='Omit the command line arguments parsing section in the main.py')
     args = parser.parse_args()
 
-    if len(sys.argv) > 1 and (args.omit is False):
+    if len(sys.argv) > 1 and (args.omit is False) and (args.dataload is False):
         t = tomography(filename=args.file_name, targetsize=args.targetsize, itheta=args.itheta, noise=args.meas_noise,crimefree=args.crimefree,commonprefix=args.globalprefix)
         real = t.target()
         r = None
@@ -744,9 +946,9 @@ if __name__ == "__main__":
                 r = t.mwg_wavelet(alpha=args.alpha, M=args.samples_num, Madapt=args.adapt_num,type=args.wave,levels=args.levels,thinning=args.thinning)
         elif args.sampler == "map":
             if args.prior == "cauchy":
-                r = t.map_cauchy(alpha=args.alpha)
+                r = t.map_cauchy(alpha=args.alpha,maxiter=125)
             elif args.prior == "tv":
-                r = t.map_tv(alpha=args.alpha)
+                r = t.map_tv(alpha=args.alpha,maxiter=125)
             elif args.prior == "wavelet":
                 r = t.map_wavelet(alpha=args.alpha,type=args.wave,levels=args.levels)
             elif args.prior == "tikhonov":
@@ -754,6 +956,41 @@ if __name__ == "__main__":
 
         plt.imshow(r)
         plt.show()
+
+    elif  len(sys.argv) > 1 and (args.omit is False) and (args.dataload is True):
+        import scipy.io
+        from scipy.stats import zscore
+        #m = scipy.io.loadmat('Walnut.mat')['FBP1200'].T
+        #m = resize(m, (328, 328), anti_aliasing=False, preserve_range=True,order=1, mode='symmetric')
+        t = tomography(dataload=True)
+
+        #t.dataload('LotusData256.mat',"A",'LotusData256.mat','m')
+        #t.dataload('CheeseData_256x180.mat', "A", 'CheeseData_256x180.mat', 'm',imsize=256)
+        #t.dataload('WalnutData164.mat', "A", 'WalnutData164.mat', 'm')
+
+        t.lhsigmsq = 0.05
+        t.Q = argumentspack(M=t.radonoperator, y=t.lines, b=0.01, s2=0.05)
+        t.targetimage = np.random.randn(t.dim,t.dim)
+        t.theta = np.array([0,90])
+        r = t.map_tikhonov(alpha=500,maxiter=150)
+
+
+        plt.imshow(r)
+        plt.show()
+
+        # r1 = r.chain[:,-1]; r1 = np.reshape(r1,(t.dim,t.dim))
+        # r2 = r.chain[:,r.chain.shape[1]//2];  r2 = np.reshape(r2,(t.dim,t.dim))
+        #
+        # r = t.map_cauchy(alpha=0.0005)
+        # r = zscore(r,axis=None)
+
+        # t.radonoperator = scipy.sparse.csc_matrix((1, t.dim * t.dim))
+        # t.targetimage = m
+        # t.dim = 100
+        # r = t.hmcmc_tikhonov(0.01,320,100,retim=False,variant='hmc')
+        # r = t.hmcmc_cauchy(0.01, 450, 250, retim=False,variant='ehmc')
+        # r = t.mwg_cauchy(0.01,25000,10500,False,100,False)
+
 
     # If we do not care the command line.
     else:
@@ -769,11 +1006,10 @@ if __name__ == "__main__":
                 return repr(dict(self))
 
 
-        '''
-        angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),
-                  'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
-        noises = ( 0.02,)
-        sizes = (1024,)
+        angles = {'sparsestwhole': 10, 'sparsewhole': 30, 'whole': 90, 'sparsestlimited': (0, 90, 10),
+                  'sparselimited': (0, 90, 30), 'limited': (0, 90, 90)}
+        noises = ( 0.015,)
+        sizes = (512,)
 
         
         alphas = np.geomspace(0.1,1000,15)
@@ -783,8 +1019,8 @@ if __name__ == "__main__":
                     for noise in noises:
                         bestl2 = np.Inf
                         best = 0
-                        t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                        t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                        t = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                        t2 = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
                         for alpha in alphas:
                             res = t.map_tikhonov(alpha, retim=False,maxiter=500)
                             res2 = t2.map_tikhonov(alpha, retim=False, maxiter=500)
@@ -794,7 +1030,7 @@ if __name__ == "__main__":
                         tikhoalpha[angletype][size][noise] = best
 
         jsontik = json.dumps(tikhoalpha)
-        f = open("tikhonov_002.json", "w")
+        f = open("tikhonov_oksallinen.json", "w")
         f.write(jsontik)
         f.close()
         print(tikhoalpha)
@@ -806,8 +1042,8 @@ if __name__ == "__main__":
                 for noise in noises:
                     bestl2 = np.Inf
                     best = 0
-                    t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t2 = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
                     for alpha in alphas:
                         res = t.map_tv(alpha, retim=False, maxiter=500)
                         res2 = t2.map_tv(alpha, retim=False, maxiter=500)
@@ -817,7 +1053,7 @@ if __name__ == "__main__":
                     tvalpha[angletype][size][noise] = best
 
         jsontv = json.dumps(tvalpha)
-        f = open("tv_002.json", "w")
+        f = open("tv_oksallinen.json", "w")
         f.write(jsontv)
         f.close()
         print(tvalpha)
@@ -829,8 +1065,8 @@ if __name__ == "__main__":
                 for noise in noises:
                     bestl2 = np.Inf
                     best = 0
-                    t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t2 = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
                     for alpha in alphas:
                         res = t.map_cauchy(alpha, retim=False, maxiter=500)
                         res2 = t2.map_cauchy(alpha, retim=False, maxiter=500)
@@ -840,7 +1076,7 @@ if __name__ == "__main__":
                     cauchyalpha[angletype][size][noise] = best
 
         jsoncau= json.dumps(cauchyalpha)
-        f = open("cauchy_002.json", "w")
+        f = open("cauchy_oksallinen.json", "w")
         f.write(jsoncau)
         f.close()
         print(cauchyalpha)
@@ -852,8 +1088,8 @@ if __name__ == "__main__":
                 for noise in noises:
                     bestl2 = np.Inf
                     best = 0
-                    t = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    t2 = tomography("shepp.png", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t2 = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
                     for alpha in alphas:
                         res = t.map_wavelet(alpha, type='haar', retim=False, maxiter=500)
                         res2 = t2.map_wavelet(alpha, type='haar', retim=False, maxiter=500)
@@ -863,50 +1099,66 @@ if __name__ == "__main__":
                     haaralpha[angletype][size][noise] = best
 
         jsonhaar = json.dumps(haaralpha)
-        f = open("haar_002.json", "w")
+        f = open("haar_oksallinen.json", "w")
         f.write(jsonhaar)
         f.close()
         print(haaralpha)
         exit(0)
-       
+
+        #--file-name viipaleet/299.mat
         #4 image sizes, 6 angle types, 3 noise levels
         #tikhoalpha =  {"sparsestwhole": {64: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 128: {0.01: 25.785714285714285, 0.05: 4.714285714285714, 0.1: 2.607142857142857}, 256: {0.01: 2.607142857142857, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 512: {0.01: 2.607142857142857, 0.05: 8.928571428571429, 0.1: 4.714285714285714}}, "sparsewhole": {64: {0.01: 30.0, 0.05: 8.928571428571429, 0.1: 4.714285714285714}, 128: {0.01: 30.0, 0.05: 4.714285714285714, 0.1: 4.714285714285714}, 256: {0.01: 23.67857142857143, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 512: {0.01: 15.25, 0.05: 6.821428571428571, 0.1: 4.714285714285714}}, "whole": {64: {0.01: 30.0, 0.05: 17.357142857142858, 0.1: 6.821428571428571}, 128: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 256: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 512: {0.01: 19.464285714285715, 0.05: 8.928571428571429, 0.1: 6.821428571428571}}, "sparsestlimited": {64: {0.01: 30.0, 0.05: 17.357142857142858, 0.1: 6.821428571428571}, 128: {0.01: 19.464285714285715, 0.05: 6.821428571428571, 0.1: 6.821428571428571}, 256: {0.01: 11.035714285714286, 0.05: 4.714285714285714, 0.1: 4.714285714285714}, 512: {0.01: 15.25, 0.05: 4.714285714285714, 0.1: 6.821428571428571}}, "sparselimited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 13.142857142857142}, 128: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 6.821428571428571}, 256: {0.01: 27.892857142857142, 0.05: 8.928571428571429, 0.1: 6.821428571428571}, 512: {0.01: 23.67857142857143, 0.05: 8.928571428571429, 0.1: 6.821428571428571}}, "limited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 21.571428571428573}, 128: {0.01: 30.0, 0.05: 11.035714285714286, 0.1: 8.928571428571429}, 256: {0.01: 30.0, 0.05: 11.035714285714286, 0.1: 8.928571428571429}, 512: {0.01: 30.0, 0.05: 11.035714285714286, 0.1: 6.821428571428571}}}
-        tikhoalpha = {"sparsestwhole": {64: {0.02: 26.207413942088984, 0.05: 7.218038036465943, 0.1: 3.760603093086394}, 128: {0.02: 14.247868454254814, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 256: {0.02: 10.505404060985274, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 512: {0.02: 10.505404060985274, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparsewhole": {64: {0.02: 35.54359110848588, 0.05: 10.0, 0.1: 5.2100073095869135}, 128: {0.02: 14.247868454254814, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 256: {0.02: 10.505404060985274, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 512: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "whole": {64: {0.02: 88.66918395150992, 0.05: 19.193831036664843, 0.1: 7.218038036465943}, 128: {0.02: 19.323555220846075, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 256: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 512: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparsestlimited": {64: {0.02: 65.37859386891436, 0.05: 19.193831036664843, 0.1: 7.218038036465943}, 128: {0.02: 7.745966692414836, 0.05: 5.2100073095869135, 0.1: 5.2100073095869135}, 256: {0.02: 5.711346241581194, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 512: {0.02: 5.711346241581194, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparselimited": {64: {0.02: 221.19948878068303, 0.05: 36.84031498640386, 0.1: 13.854180248814739}, 128: {0.02: 19.323555220846075, 0.05: 10.0, 0.1: 5.2100073095869135}, 256: {0.02: 10.505404060985274, 0.05: 10.0, 0.1: 5.2100073095869135}, 512: {0.02: 10.505404060985274, 0.05: 7.218038036465943, 0.1: 7.218038036465943}}, "limited": {64: {0.02: 360.9019018232971, 0.05: 70.71067811865474, 0.1: 19.193831036664843}, 128: {0.02: 35.54359110848588, 0.05: 13.854180248814739, 0.1: 7.218038036465943}, 256: {0.02: 19.323555220846075, 0.05: 13.854180248814739, 0.1: 7.218038036465943}, 512: {0.02: 14.247868454254814, 0.05: 10.0, 0.1: 7.218038036465943}}}
+        #tikhoalpha = {"sparsestwhole": {64: {0.02: 26.207413942088984, 0.05: 7.218038036465943, 0.1: 3.760603093086394}, 128: {0.02: 14.247868454254814, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 256: {0.02: 10.505404060985274, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 512: {0.02: 10.505404060985274, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparsewhole": {64: {0.02: 35.54359110848588, 0.05: 10.0, 0.1: 5.2100073095869135}, 128: {0.02: 14.247868454254814, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 256: {0.02: 10.505404060985274, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 512: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "whole": {64: {0.02: 88.66918395150992, 0.05: 19.193831036664843, 0.1: 7.218038036465943}, 128: {0.02: 19.323555220846075, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 256: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 512: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparsestlimited": {64: {0.02: 65.37859386891436, 0.05: 19.193831036664843, 0.1: 7.218038036465943}, 128: {0.02: 7.745966692414836, 0.05: 5.2100073095869135, 0.1: 5.2100073095869135}, 256: {0.02: 5.711346241581194, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 512: {0.02: 5.711346241581194, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparselimited": {64: {0.02: 221.19948878068303, 0.05: 36.84031498640386, 0.1: 13.854180248814739}, 128: {0.02: 19.323555220846075, 0.05: 10.0, 0.1: 5.2100073095869135}, 256: {0.02: 10.505404060985274, 0.05: 10.0, 0.1: 5.2100073095869135}, 512: {0.02: 10.505404060985274, 0.05: 7.218038036465943, 0.1: 7.218038036465943}}, "limited": {64: {0.02: 360.9019018232971, 0.05: 70.71067811865474, 0.1: 19.193831036664843}, 128: {0.02: 35.54359110848588, 0.05: 13.854180248814739, 0.1: 7.218038036465943}, 256: {0.02: 19.323555220846075, 0.05: 13.854180248814739, 0.1: 7.218038036465943}, 512: {0.02: 14.247868454254814, 0.05: 10.0, 0.1: 7.218038036465943}}}
         #tvalpha = {"sparsestwhole": {64: {0.01: 25.0, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 128: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 256: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "sparsewhole": {64: {0.01: 25.0, 0.05: 5.435714285714285, 0.1: 1.8785714285714286}, 128: {0.01: 25.0, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 256: {0.01: 7.2142857142857135, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "whole": {64: {0.01: 25.0, 0.05: 10.77142857142857, 0.1: 3.657142857142857}, 128: {0.01: 25.0, 0.05: 3.657142857142857, 0.1: 1.8785714285714286}, 256: {0.01: 23.22142857142857, 0.05: 3.657142857142857, 0.1: 1.8785714285714286}, 512: {0.01: 5.435714285714285, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "sparsestlimited": {64: {0.01: 25.0, 0.05: 8.992857142857142, 0.1: 3.657142857142857}, 128: {0.01: 3.657142857142857, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 256: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "sparselimited": {64: {0.01: 25.0, 0.05: 25.0, 0.1: 7.2142857142857135}, 128: {0.01: 14.328571428571427, 0.05: 1.8785714285714286, 0.1: 3.657142857142857}, 256: {0.01: 5.435714285714285, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 3.657142857142857, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "limited": {64: {0.01: 25.0, 0.05: 25.0, 0.1: 14.328571428571427}, 128: {0.01: 25.0, 0.05: 3.657142857142857, 0.1: 1.8785714285714286}, 256: {0.01: 8.992857142857142, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 8.992857142857142, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}}
-        tvalpha = {"sparsestwhole": {64: {0.02: 7.745966692414828, 0.05: 1.817120592832139, 0.1: 1.2646221415587084}, 128: {0.02: 1.2646221415587084, 0.05: 0.880111736793393, 0.1: 0.6125123416602171}, 256: {0.02: 0.6125123416602171, 0.05: 0.880111736793393, 0.1: 0.6125123416602171}, 512: {0.02: 0.880111736793393, 0.05: 1.2646221415587084, 0.1: 0.880111736793393}}, "sparsewhole": {64: {0.02: 33.01927248894624, 0.05: 5.390793008259619, 0.1: 2.6109990805829466}, 128: {0.02: 7.745966692414828, 0.05: 2.6109990805829466, 0.1: 1.2646221415587084}, 256: {0.02: 3.7517136868608247, 0.05: 1.817120592832139, 0.1: 0.880111736793393}, 512: {0.02: 1.817120592832139, 0.05: 1.2646221415587084, 0.1: 0.880111736793393}}, "whole": {64: {0.02: 68.17316198804991, 0.05: 11.13008789394615, 0.1: 3.7517136868608247}, 128: {0.02: 15.99269160920534, 0.05: 3.7517136868608247, 0.1: 1.817120592832139}, 256: {0.02: 7.745966692414828, 0.05: 2.6109990805829466, 0.1: 1.2646221415587084}, 512: {0.02: 3.7517136868608247, 0.05: 1.817120592832139, 0.1: 1.2646221415587084}}, "sparsestlimited": {64: {0.02: 47.44500197193054, 0.05: 11.13008789394615, 0.1: 2.6109990805829466}, 128: {0.02: 2.6109990805829466, 0.05: 1.817120592832139, 0.1: 1.817120592832139}, 256: {0.02: 0.2966667721187179, 0.05: 1.817120592832139, 0.1: 1.2646221415587084}, 512: {0.02: 0.880111736793393, 0.05: 1.2646221415587084, 0.1: 1.817120592832139}}, "sparselimited": {64: {0.02: 140.75355588178843, 0.05: 33.01927248894624, 0.1: 7.745966692414828}, 128: {0.02: 3.7517136868608247, 0.05: 1.817120592832139, 0.1: 1.817120592832139}, 256: {0.02: 2.6109990805829466, 0.05: 2.6109990805829466, 0.1: 1.817120592832139}, 512: {0.02: 1.2646221415587084, 0.05: 1.817120592832139, 0.1: 1.817120592832139}}, "limited": {64: {0.02: 290.606492579008, 0.05: 47.44500197193054, 0.1: 15.99269160920534}, 128: {0.02: 7.745966692414828, 0.05: 3.7517136868608247, 0.1: 1.817120592832139}, 256: {0.02: 3.7517136868608247, 0.05: 2.6109990805829466, 0.1: 2.6109990805829466}, 512: {0.02: 2.6109990805829466, 0.05: 1.817120592832139, 0.1: 1.817120592832139}}}
+        #tvalpha = {"sparsestwhole": {64: {0.02: 7.745966692414828, 0.05: 1.817120592832139, 0.1: 1.2646221415587084}, 128: {0.02: 1.2646221415587084, 0.05: 0.880111736793393, 0.1: 0.6125123416602171}, 256: {0.02: 0.6125123416602171, 0.05: 0.880111736793393, 0.1: 0.6125123416602171}, 512: {0.02: 0.880111736793393, 0.05: 1.2646221415587084, 0.1: 0.880111736793393}}, "sparsewhole": {64: {0.02: 33.01927248894624, 0.05: 5.390793008259619, 0.1: 2.6109990805829466}, 128: {0.02: 7.745966692414828, 0.05: 2.6109990805829466, 0.1: 1.2646221415587084}, 256: {0.02: 3.7517136868608247, 0.05: 1.817120592832139, 0.1: 0.880111736793393}, 512: {0.02: 1.817120592832139, 0.05: 1.2646221415587084, 0.1: 0.880111736793393}}, "whole": {64: {0.02: 68.17316198804991, 0.05: 11.13008789394615, 0.1: 3.7517136868608247}, 128: {0.02: 15.99269160920534, 0.05: 3.7517136868608247, 0.1: 1.817120592832139}, 256: {0.02: 7.745966692414828, 0.05: 2.6109990805829466, 0.1: 1.2646221415587084}, 512: {0.02: 3.7517136868608247, 0.05: 1.817120592832139, 0.1: 1.2646221415587084}}, "sparsestlimited": {64: {0.02: 47.44500197193054, 0.05: 11.13008789394615, 0.1: 2.6109990805829466}, 128: {0.02: 2.6109990805829466, 0.05: 1.817120592832139, 0.1: 1.817120592832139}, 256: {0.02: 0.2966667721187179, 0.05: 1.817120592832139, 0.1: 1.2646221415587084}, 512: {0.02: 0.880111736793393, 0.05: 1.2646221415587084, 0.1: 1.817120592832139}}, "sparselimited": {64: {0.02: 140.75355588178843, 0.05: 33.01927248894624, 0.1: 7.745966692414828}, 128: {0.02: 3.7517136868608247, 0.05: 1.817120592832139, 0.1: 1.817120592832139}, 256: {0.02: 2.6109990805829466, 0.05: 2.6109990805829466, 0.1: 1.817120592832139}, 512: {0.02: 1.2646221415587084, 0.05: 1.817120592832139, 0.1: 1.817120592832139}}, "limited": {64: {0.02: 290.606492579008, 0.05: 47.44500197193054, 0.1: 15.99269160920534}, 128: {0.02: 7.745966692414828, 0.05: 3.7517136868608247, 0.1: 1.817120592832139}, 256: {0.02: 3.7517136868608247, 0.05: 2.6109990805829466, 0.1: 2.6109990805829466}, 512: {0.02: 2.6109990805829466, 0.05: 1.817120592832139, 0.1: 1.817120592832139}}}
         #cauchyalpha = {"sparsestwhole": {64: {0.01: 0.057058823529411766, 0.05: 0.039705882352941174, 0.1: 0.23058823529411765}, 128: {0.01: 0.005, 0.05: 0.10911764705882354, 0.1: 0.26529411764705885}, 256: {0.01: 0.005, 0.05: 0.1264705882352941, 0.1: 0.24794117647058825}, 512: {0.01: 0.005, 0.05: 0.1264705882352941, 0.1: 0.17852941176470588}}, "sparsewhole": {64: {0.01: 0.005, 0.05: 0.02235294117647059, 0.1: 0.1264705882352941}, 128: {0.01: 0.07441176470588236, 0.05: 0.039705882352941174, 0.1: 0.24794117647058825}, 256: {0.01: 0.039705882352941174, 0.05: 0.10911764705882354, 0.1: 0.24794117647058825}, 512: {0.01: 0.02235294117647059, 0.05: 0.10911764705882354, 0.1: 0.21323529411764708}}, "whole": {64: {0.01: 0.005, 0.05: 0.005, 0.1: 0.02235294117647059}, 128: {0.01: 0.005, 0.05: 0.039705882352941174, 0.1: 0.1438235294117647}, 256: {0.01: 0.09176470588235294, 0.05: 0.02235294117647059, 0.1: 0.17852941176470588}, 512: {0.01: 0.02235294117647059, 0.05: 0.09176470588235294, 0.1: 0.1611764705882353}}, "sparsestlimited": {64: {0.01: 0.3, 0.05: 0.005, 0.1: 0.10911764705882354}, 128: {0.01: 0.005, 0.05: 0.26529411764705885, 0.1: 0.23058823529411765}, 256: {0.01: 0.23058823529411765, 0.05: 0.23058823529411765, 0.1: 0.21323529411764708}, 512: {0.01: 0.10911764705882354, 0.05: 0.19588235294117648, 0.1: 0.19588235294117648}}, "sparselimited": {64: {0.01: 0.005, 0.05: 0.005, 0.1: 0.005}, 128: {0.01: 0.005, 0.05: 0.23058823529411765, 0.1: 0.21323529411764708}, 256: {0.01: 0.10911764705882354, 0.05: 0.23058823529411765, 0.1: 0.21323529411764708}, 512: {0.01: 0.09176470588235294, 0.05: 0.17852941176470588, 0.1: 0.1264705882352941}}, "limited": {64: {0.01: 0.005, 0.05: 0.005, 0.1: 0.005}, 128: {0.01: 0.005, 0.05: 0.005, 0.1: 0.26529411764705885}, 256: {0.01: 0.02235294117647059, 0.05: 0.19588235294117648, 0.1: 0.23058823529411765}, 512: {0.01: 0.005, 0.05: 0.1611764705882353, 0.1: 0.1611764705882353}}}
-        cauchyalpha = {"sparsestwhole": {64: {0.02: 0.0011892071150027212, 0.05: 0.05318295896944989, 0.1: 0.17817974362806763}, 128: {0.02: 0.009360637232664544, 0.05: 0.09734539534337833, 0.1: 0.32613788179066194}, 256: {0.02: 0.004100966752495598, 0.05: 0.09734539534337833, 0.1: 0.32613788179066194}, 512: {0.02: 0.0017966648943927722, 0.05: 0.09734539534337833, 0.1: 0.17817974362806763}}, "sparsewhole": {64: {0.02: 0.00015108090691070758, 0.05: 0.008672488792828026, 0.1: 0.09734539534337833}, 128: {0.02: 0.07368062997280773, 0.05: 0.05318295896944989, 0.1: 0.17817974362806763}, 256: {0.02: 0.032280047427433914, 0.05: 0.09734539534337833, 0.1: 0.32613788179066194}, 512: {0.02: 0.01414213562373095, 0.05: 0.09734539534337833, 0.1: 0.17817974362806763}}, "whole": {64: {0.02: 0.0001, 0.05: 0.004738062997279315, 0.1: 0.05318295896944989}, 128: {0.02: 0.01414213562373095, 0.05: 0.05318295896944989, 0.1: 0.09734539534337833}, 256: {0.02: 0.07368062997280773, 0.05: 0.029055582082430587, 0.1: 0.17817974362806763}, 512: {0.02: 0.021366066756874972, 0.05: 0.09734539534337833, 0.1: 0.17817974362806763}}, "sparsestlimited": {64: {0.02: 0.0005210007309586913, 0.05: 0.004738062997279315, 0.1: 0.09734539534337833}, 128: {0.02: 0.002714417616594907, 0.05: 0.32613788179066194, 0.1: 0.17817974362806763}, 256: {0.02: 0.5799642800220423, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}, 512: {0.02: 0.16817928305074292, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}}, "sparselimited": {64: {0.02: 3.3503164750652652e-06, 0.05: 0.00042211342507443144, 0.1: 0.004738062997279315}, 128: {0.02: 2.054539912180901e-05, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}, 256: {0.02: 6.883358916458818e-05, 0.05: 0.32613788179066194, 0.1: 0.17817974362806763}, 512: {0.02: 0.17817974362806763, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}}, "limited": {64: {0.02: 2.765365240491261e-06, 0.05: 6.132375635173039e-06, 0.1: 0.00042211342507443144}, 128: {0.02: 0.0002689296879997083, 0.05: 3.7606030930863934e-05, 0.1: 0.17817974362806763}, 256: {0.02: 9.72492472466073e-05, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}, 512: {0.02: 0.12026901270703146, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}}}
+        #cauchyalpha = {"sparsestwhole": {64: {0.02: 0.0011892071150027212, 0.05: 0.05318295896944989, 0.1: 0.17817974362806763}, 128: {0.02: 0.009360637232664544, 0.05: 0.09734539534337833, 0.1: 0.32613788179066194}, 256: {0.02: 0.004100966752495598, 0.05: 0.09734539534337833, 0.1: 0.32613788179066194}, 512: {0.02: 0.0017966648943927722, 0.05: 0.09734539534337833, 0.1: 0.17817974362806763}}, "sparsewhole": {64: {0.02: 0.00015108090691070758, 0.05: 0.008672488792828026, 0.1: 0.09734539534337833}, 128: {0.02: 0.07368062997280773, 0.05: 0.05318295896944989, 0.1: 0.17817974362806763}, 256: {0.02: 0.032280047427433914, 0.05: 0.09734539534337833, 0.1: 0.32613788179066194}, 512: {0.02: 0.01414213562373095, 0.05: 0.09734539534337833, 0.1: 0.17817974362806763}}, "whole": {64: {0.02: 0.0001, 0.05: 0.004738062997279315, 0.1: 0.05318295896944989}, 128: {0.02: 0.01414213562373095, 0.05: 0.05318295896944989, 0.1: 0.09734539534337833}, 256: {0.02: 0.07368062997280773, 0.05: 0.029055582082430587, 0.1: 0.17817974362806763}, 512: {0.02: 0.021366066756874972, 0.05: 0.09734539534337833, 0.1: 0.17817974362806763}}, "sparsestlimited": {64: {0.02: 0.0005210007309586913, 0.05: 0.004738062997279315, 0.1: 0.09734539534337833}, 128: {0.02: 0.002714417616594907, 0.05: 0.32613788179066194, 0.1: 0.17817974362806763}, 256: {0.02: 0.5799642800220423, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}, 512: {0.02: 0.16817928305074292, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}}, "sparselimited": {64: {0.02: 3.3503164750652652e-06, 0.05: 0.00042211342507443144, 0.1: 0.004738062997279315}, 128: {0.02: 2.054539912180901e-05, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}, 256: {0.02: 6.883358916458818e-05, 0.05: 0.32613788179066194, 0.1: 0.17817974362806763}, 512: {0.02: 0.17817974362806763, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}}, "limited": {64: {0.02: 2.765365240491261e-06, 0.05: 6.132375635173039e-06, 0.1: 0.00042211342507443144}, 128: {0.02: 0.0002689296879997083, 0.05: 3.7606030930863934e-05, 0.1: 0.17817974362806763}, 256: {0.02: 9.72492472466073e-05, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}, 512: {0.02: 0.12026901270703146, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}}}
         #haaralpha = {"sparsestwhole": {64: {0.01: 30.0, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 128: {0.01: 8.642857142857142, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 256: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 512: {0.01: 4.371428571428571, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "sparsewhole": {64: {0.01: 30.0, 0.05: 12.914285714285713, 0.1: 4.371428571428571}, 128: {0.01: 30.0, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 256: {0.01: 6.507142857142856, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 512: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "whole": {64: {0.01: 30.0, 0.05: 25.728571428571428, 0.1: 8.642857142857142}, 128: {0.01: 30.0, 0.05: 8.642857142857142, 0.1: 4.371428571428571}, 256: {0.01: 15.049999999999999, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 512: {0.01: 4.371428571428571, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "sparsestlimited": {64: {0.01: 30.0, 0.05: 12.914285714285713, 0.1: 4.371428571428571}, 128: {0.01: 2.2357142857142858, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 256: {0.01: 0.1, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 512: {0.01: 0.1, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "sparselimited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 12.914285714285713}, 128: {0.01: 23.592857142857145, 0.05: 8.642857142857142, 0.1: 4.371428571428571}, 256: {0.01: 2.2357142857142858, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 512: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "limited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 19.321428571428573}, 128: {0.01: 30.0, 0.05: 8.642857142857142, 0.1: 4.371428571428571}, 256: {0.01: 4.371428571428571, 0.05: 6.507142857142856, 0.1: 4.371428571428571}, 512: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}}
-        haaralpha = {"sparsestwhole": {64: {0.02: 18.138420703071393, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 128: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 256: {0.02: 3.661388283197873, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}, 512: {0.02: 3.661388283197873, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "sparsewhole": {64: {0.02: 60.230259343740826, 0.05: 12.742749857031335, 0.1: 4.832930238571752}, 128: {0.02: 12.157969509318965, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 256: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 512: {0.02: 2.4541853911988967, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "whole": {64: {0.02: 134.05764160338668, 0.05: 20.6913808111479, 0.1: 7.847599703514611}, 128: {0.02: 27.0606292727936, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 8.149343595525918, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}}, "sparsestlimited": {64: {0.02: 60.230259343740826, 0.05: 12.742749857031335, 0.1: 4.832930238571752}, 128: {0.02: 12.157969509318965, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 256: {0.02: 0.33205900518969655, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 512: {0.02: 0.22257523554448713, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "sparselimited": {64: {0.02: 241.64651192858759, 0.05: 33.59818286283781, 0.1: 12.742749857031335}, 128: {0.02: 12.157969509318965, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 3.661388283197873, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 0.7390811129476478, 0.05: 1.8329807108324356, 0.1: 1.8329807108324356}}, "limited": {64: {0.02: 572.5142703256575, 0.05: 88.58667904100822, 0.1: 20.6913808111479}, 128: {0.02: 18.138420703071393, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 8.149343595525918, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 1.6450115280080442, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}}}
+        #haaralpha = {"sparsestwhole": {64: {0.02: 18.138420703071393, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 128: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 256: {0.02: 3.661388283197873, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}, 512: {0.02: 3.661388283197873, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "sparsewhole": {64: {0.02: 60.230259343740826, 0.05: 12.742749857031335, 0.1: 4.832930238571752}, 128: {0.02: 12.157969509318965, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 256: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 512: {0.02: 2.4541853911988967, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "whole": {64: {0.02: 134.05764160338668, 0.05: 20.6913808111479, 0.1: 7.847599703514611}, 128: {0.02: 27.0606292727936, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 8.149343595525918, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}}, "sparsestlimited": {64: {0.02: 60.230259343740826, 0.05: 12.742749857031335, 0.1: 4.832930238571752}, 128: {0.02: 12.157969509318965, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 256: {0.02: 0.33205900518969655, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 512: {0.02: 0.22257523554448713, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "sparselimited": {64: {0.02: 241.64651192858759, 0.05: 33.59818286283781, 0.1: 12.742749857031335}, 128: {0.02: 12.157969509318965, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 3.661388283197873, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 0.7390811129476478, 0.05: 1.8329807108324356, 0.1: 1.8329807108324356}}, "limited": {64: {0.02: 572.5142703256575, 0.05: 88.58667904100822, 0.1: 20.6913808111479}, 128: {0.02: 18.138420703071393, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 8.149343595525918, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 1.6450115280080442, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}}}
 
-        angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),
-                  'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
-        noises = (0.02, 0.05, 0.1)
-        sizes = (64, 128, 256, 512) #
-        '''
+        # angles = {'sparsestwhole': 10, 'sparsewhole': 30, 'whole': 90, 'sparsestlimited': (0, 90, 10),
+        #           'sparselimited': (0, 90, 30), 'limited': (0, 90, 30)}
+        # noises = (0.015,)
+        # sizes = (512,)
+
 
         # Big image and one noise level
         #tikhoalpha = {"sparsestwhole": {1024: {0.05: 19.306977288832496}}, "sparsewhole": {1024: {0.05: 10.0}}, "whole": {1024: {0.05: 19.306977288832496}}, "sparsestlimited": {1024: {0.05: 5.17947467923121}}, "sparselimited": {1024: {0.05: 19.306977288832496}}, "limited": {1024: {0.05: 19.306977288832496}}}
         #tvalpha = {"sparsestwhole": {1024: {0.05: 2.6826957952797246}}, "sparsewhole": {1024: {0.05: 2.6826957952797246}}, "whole": {1024: {0.05: 2.6826957952797246}}, "sparsestlimited": {1024: {0.05: 5.17947467923121}}, "sparselimited": {1024: {0.05: 2.6826957952797246}}, "limited": {1024: {0.05: 2.6826957952797246}}}
         #cauchyalpha = {"sparsestwhole": {1024: {0.05: 0.08929132803668435}}, "sparsewhole": {1024: {0.05: 0.08929132803668435}}, "whole": {1024: {0.05: 0.08929132803668435}}, "sparsestlimited": {1024: {0.05: 0.08929132803668435}}, "sparselimited": {1024: {0.05: 0.08929132803668435}}, "limited": {1024: {0.05: 0.08929132803668435}}}
         #haaralpha = {"sparsestwhole": {1024: {0.05: 1.3894954943731375}}, "sparsewhole": {1024: {0.05: 1.3894954943731375}}, "whole": {1024: {0.05: 3.1622776601683795}}, "sparsestlimited": {1024: {0.05: 1.3894954943731375}}, "sparselimited": {1024: {0.05: 3.1622776601683795}}, "limited": {1024: {0.05: 3.1622776601683795}}}
+        # tikhoalpha = {'sparsestwhole': {1024: {0.05: 19.306977288832496, 0.02: 10.0}}, 'sparsewhole': {1024: {0.05: 10.0, 0.02: 19.306977288832496}}, 'whole': {1024: {0.05: 19.306977288832496, 0.02: 19.306977288832496}}, 'sparsestlimited': {1024: {0.05: 5.17947467923121, 0.02: 10.0}}, 'sparselimited': {1024: {0.05: 19.306977288832496, 0.02: 10.0}}, 'limited': {1024: {0.05: 19.306977288832496, 0.02: 19.306977288832496}}}
+        # tvalpha = {'sparsestwhole': {1024: {0.05: 2.6826957952797246, 0.02: 2.6826957952797246}}, 'sparsewhole': {1024: {0.05: 2.6826957952797246, 0.02: 2.6826957952797246}}, 'whole': {1024: {0.05: 2.6826957952797246, 0.02: 5.17947467923121}}, 'sparsestlimited': {1024: {0.05: 5.17947467923121, 0.02: 1.3894954943731375}}, 'sparselimited': {1024: {0.05: 2.6826957952797246, 0.02: 2.6826957952797246}}, 'limited': {1024: {0.05: 2.6826957952797246, 0.02: 2.6826957952797246}}}
+        # cauchyalpha = {'sparsestwhole': {1024: {0.05: 0.08929132803668435, 0.02: 0.0005016969106227038}}, 'sparsewhole': {1024: {0.05: 0.08929132803668435, 0.02: 0.003986470631277378}}, 'whole': {1024: {0.05: 0.08929132803668435, 0.02: 0.003986470631277378}}, 'sparsestlimited': {1024: {0.05: 0.08929132803668435, 0.02: 0.08929132803668435}}, 'sparselimited': {1024: {0.05: 0.08929132803668435, 0.02: 0.08929132803668435}}, 'limited': {1024: {0.05: 0.08929132803668435, 0.02: 0.08929132803668435}}}
+        # haaralpha = {'sparsestwhole': {1024: {0.05: 1.3894954943731375, 0.02: 3.1622776601683795}}, 'sparsewhole': {1024: {0.05: 1.3894954943731375, 0.02: 3.1622776601683795}}, 'whole': {1024: {0.05: 3.1622776601683795, 0.02: 3.1622776601683795}}, 'sparsestlimited': {1024: {0.05: 1.3894954943731375, 0.02: 0.2682695795279726}}, 'sparselimited': {1024: {0.05: 3.1622776601683795, 0.02: 0.6105402296585329}}, 'limited': {1024: {0.05: 3.1622776601683795, 0.02: 3.1622776601683795}}}
+        #
+        # angles =  {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
+        # noises = (0.02,)
+        # sizes = (1024,)
+		#4 image sizes, 6 angle types, 3 noise levels
+        #tikhoalpha =  {"sparsestwhole": {64: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 128: {0.01: 25.785714285714285, 0.05: 4.714285714285714, 0.1: 2.607142857142857}, 256: {0.01: 2.607142857142857, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 512: {0.01: 2.607142857142857, 0.05: 8.928571428571429, 0.1: 4.714285714285714}}, "sparsewhole": {64: {0.01: 30.0, 0.05: 8.928571428571429, 0.1: 4.714285714285714}, 128: {0.01: 30.0, 0.05: 4.714285714285714, 0.1: 4.714285714285714}, 256: {0.01: 23.67857142857143, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 512: {0.01: 15.25, 0.05: 6.821428571428571, 0.1: 4.714285714285714}}, "whole": {64: {0.01: 30.0, 0.05: 17.357142857142858, 0.1: 6.821428571428571}, 128: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 256: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 4.714285714285714}, 512: {0.01: 19.464285714285715, 0.05: 8.928571428571429, 0.1: 6.821428571428571}}, "sparsestlimited": {64: {0.01: 30.0, 0.05: 17.357142857142858, 0.1: 6.821428571428571}, 128: {0.01: 19.464285714285715, 0.05: 6.821428571428571, 0.1: 6.821428571428571}, 256: {0.01: 11.035714285714286, 0.05: 4.714285714285714, 0.1: 4.714285714285714}, 512: {0.01: 15.25, 0.05: 4.714285714285714, 0.1: 6.821428571428571}}, "sparselimited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 13.142857142857142}, 128: {0.01: 30.0, 0.05: 6.821428571428571, 0.1: 6.821428571428571}, 256: {0.01: 27.892857142857142, 0.05: 8.928571428571429, 0.1: 6.821428571428571}, 512: {0.01: 23.67857142857143, 0.05: 8.928571428571429, 0.1: 6.821428571428571}}, "limited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 21.571428571428573}, 128: {0.01: 30.0, 0.05: 11.035714285714286, 0.1: 8.928571428571429}, 256: {0.01: 30.0, 0.05: 11.035714285714286, 0.1: 8.928571428571429}, 512: {0.01: 30.0, 0.05: 11.035714285714286, 0.1: 6.821428571428571}}}
+        #tikhoalpha = {"sparsestwhole": {64: {0.02: 26.207413942088984, 0.05: 7.218038036465943, 0.1: 3.760603093086394}, 128: {0.02: 14.247868454254814, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 256: {0.02: 10.505404060985274, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 512: {0.02: 10.505404060985274, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparsewhole": {64: {0.02: 35.54359110848588, 0.05: 10.0, 0.1: 5.2100073095869135}, 128: {0.02: 14.247868454254814, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 256: {0.02: 10.505404060985274, 0.05: 5.2100073095869135, 0.1: 3.760603093086394}, 512: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "whole": {64: {0.02: 88.66918395150992, 0.05: 19.193831036664843, 0.1: 7.218038036465943}, 128: {0.02: 19.323555220846075, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 256: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 512: {0.02: 14.247868454254814, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparsestlimited": {64: {0.02: 65.37859386891436, 0.05: 19.193831036664843, 0.1: 7.218038036465943}, 128: {0.02: 7.745966692414836, 0.05: 5.2100073095869135, 0.1: 5.2100073095869135}, 256: {0.02: 5.711346241581194, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}, 512: {0.02: 5.711346241581194, 0.05: 7.218038036465943, 0.1: 5.2100073095869135}}, "sparselimited": {64: {0.02: 221.19948878068303, 0.05: 36.84031498640386, 0.1: 13.854180248814739}, 128: {0.02: 19.323555220846075, 0.05: 10.0, 0.1: 5.2100073095869135}, 256: {0.02: 10.505404060985274, 0.05: 10.0, 0.1: 5.2100073095869135}, 512: {0.02: 10.505404060985274, 0.05: 7.218038036465943, 0.1: 7.218038036465943}}, "limited": {64: {0.02: 360.9019018232971, 0.05: 70.71067811865474, 0.1: 19.193831036664843}, 128: {0.02: 35.54359110848588, 0.05: 13.854180248814739, 0.1: 7.218038036465943}, 256: {0.02: 19.323555220846075, 0.05: 13.854180248814739, 0.1: 7.218038036465943}, 512: {0.02: 14.247868454254814, 0.05: 10.0, 0.1: 7.218038036465943}}}
+        #tvalpha = {"sparsestwhole": {64: {0.01: 25.0, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 128: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 256: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "sparsewhole": {64: {0.01: 25.0, 0.05: 5.435714285714285, 0.1: 1.8785714285714286}, 128: {0.01: 25.0, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 256: {0.01: 7.2142857142857135, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "whole": {64: {0.01: 25.0, 0.05: 10.77142857142857, 0.1: 3.657142857142857}, 128: {0.01: 25.0, 0.05: 3.657142857142857, 0.1: 1.8785714285714286}, 256: {0.01: 23.22142857142857, 0.05: 3.657142857142857, 0.1: 1.8785714285714286}, 512: {0.01: 5.435714285714285, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "sparsestlimited": {64: {0.01: 25.0, 0.05: 8.992857142857142, 0.1: 3.657142857142857}, 128: {0.01: 3.657142857142857, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 256: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 1.8785714285714286, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "sparselimited": {64: {0.01: 25.0, 0.05: 25.0, 0.1: 7.2142857142857135}, 128: {0.01: 14.328571428571427, 0.05: 1.8785714285714286, 0.1: 3.657142857142857}, 256: {0.01: 5.435714285714285, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 3.657142857142857, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}, "limited": {64: {0.01: 25.0, 0.05: 25.0, 0.1: 14.328571428571427}, 128: {0.01: 25.0, 0.05: 3.657142857142857, 0.1: 1.8785714285714286}, 256: {0.01: 8.992857142857142, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}, 512: {0.01: 8.992857142857142, 0.05: 1.8785714285714286, 0.1: 1.8785714285714286}}}
+        #tvalpha = {"sparsestwhole": {64: {0.02: 7.745966692414828, 0.05: 1.817120592832139, 0.1: 1.2646221415587084}, 128: {0.02: 1.2646221415587084, 0.05: 0.880111736793393, 0.1: 0.6125123416602171}, 256: {0.02: 0.6125123416602171, 0.05: 0.880111736793393, 0.1: 0.6125123416602171}, 512: {0.02: 0.880111736793393, 0.05: 1.2646221415587084, 0.1: 0.880111736793393}}, "sparsewhole": {64: {0.02: 33.01927248894624, 0.05: 5.390793008259619, 0.1: 2.6109990805829466}, 128: {0.02: 7.745966692414828, 0.05: 2.6109990805829466, 0.1: 1.2646221415587084}, 256: {0.02: 3.7517136868608247, 0.05: 1.817120592832139, 0.1: 0.880111736793393}, 512: {0.02: 1.817120592832139, 0.05: 1.2646221415587084, 0.1: 0.880111736793393}}, "whole": {64: {0.02: 68.17316198804991, 0.05: 11.13008789394615, 0.1: 3.7517136868608247}, 128: {0.02: 15.99269160920534, 0.05: 3.7517136868608247, 0.1: 1.817120592832139}, 256: {0.02: 7.745966692414828, 0.05: 2.6109990805829466, 0.1: 1.2646221415587084}, 512: {0.02: 3.7517136868608247, 0.05: 1.817120592832139, 0.1: 1.2646221415587084}}, "sparsestlimited": {64: {0.02: 47.44500197193054, 0.05: 11.13008789394615, 0.1: 2.6109990805829466}, 128: {0.02: 2.6109990805829466, 0.05: 1.817120592832139, 0.1: 1.817120592832139}, 256: {0.02: 0.2966667721187179, 0.05: 1.817120592832139, 0.1: 1.2646221415587084}, 512: {0.02: 0.880111736793393, 0.05: 1.2646221415587084, 0.1: 1.817120592832139}}, "sparselimited": {64: {0.02: 140.75355588178843, 0.05: 33.01927248894624, 0.1: 7.745966692414828}, 128: {0.02: 3.7517136868608247, 0.05: 1.817120592832139, 0.1: 1.817120592832139}, 256: {0.02: 2.6109990805829466, 0.05: 2.6109990805829466, 0.1: 1.817120592832139}, 512: {0.02: 1.2646221415587084, 0.05: 1.817120592832139, 0.1: 1.817120592832139}}, "limited": {64: {0.02: 290.606492579008, 0.05: 47.44500197193054, 0.1: 15.99269160920534}, 128: {0.02: 7.745966692414828, 0.05: 3.7517136868608247, 0.1: 1.817120592832139}, 256: {0.02: 3.7517136868608247, 0.05: 2.6109990805829466, 0.1: 2.6109990805829466}, 512: {0.02: 2.6109990805829466, 0.05: 1.817120592832139, 0.1: 1.817120592832139}}}
+        #cauchyalpha = {"sparsestwhole": {64: {0.01: 0.057058823529411766, 0.05: 0.039705882352941174, 0.1: 0.23058823529411765}, 128: {0.01: 0.005, 0.05: 0.10911764705882354, 0.1: 0.26529411764705885}, 256: {0.01: 0.005, 0.05: 0.1264705882352941, 0.1: 0.24794117647058825}, 512: {0.01: 0.005, 0.05: 0.1264705882352941, 0.1: 0.17852941176470588}}, "sparsewhole": {64: {0.01: 0.005, 0.05: 0.02235294117647059, 0.1: 0.1264705882352941}, 128: {0.01: 0.07441176470588236, 0.05: 0.039705882352941174, 0.1: 0.24794117647058825}, 256: {0.01: 0.039705882352941174, 0.05: 0.10911764705882354, 0.1: 0.24794117647058825}, 512: {0.01: 0.02235294117647059, 0.05: 0.10911764705882354, 0.1: 0.21323529411764708}}, "whole": {64: {0.01: 0.005, 0.05: 0.005, 0.1: 0.02235294117647059}, 128: {0.01: 0.005, 0.05: 0.039705882352941174, 0.1: 0.1438235294117647}, 256: {0.01: 0.09176470588235294, 0.05: 0.02235294117647059, 0.1: 0.17852941176470588}, 512: {0.01: 0.02235294117647059, 0.05: 0.09176470588235294, 0.1: 0.1611764705882353}}, "sparsestlimited": {64: {0.01: 0.3, 0.05: 0.005, 0.1: 0.10911764705882354}, 128: {0.01: 0.005, 0.05: 0.26529411764705885, 0.1: 0.23058823529411765}, 256: {0.01: 0.23058823529411765, 0.05: 0.23058823529411765, 0.1: 0.21323529411764708}, 512: {0.01: 0.10911764705882354, 0.05: 0.19588235294117648, 0.1: 0.19588235294117648}}, "sparselimited": {64: {0.01: 0.005, 0.05: 0.005, 0.1: 0.005}, 128: {0.01: 0.005, 0.05: 0.23058823529411765, 0.1: 0.21323529411764708}, 256: {0.01: 0.10911764705882354, 0.05: 0.23058823529411765, 0.1: 0.21323529411764708}, 512: {0.01: 0.09176470588235294, 0.05: 0.17852941176470588, 0.1: 0.1264705882352941}}, "limited": {64: {0.01: 0.005, 0.05: 0.005, 0.1: 0.005}, 128: {0.01: 0.005, 0.05: 0.005, 0.1: 0.26529411764705885}, 256: {0.01: 0.02235294117647059, 0.05: 0.19588235294117648, 0.1: 0.23058823529411765}, 512: {0.01: 0.005, 0.05: 0.1611764705882353, 0.1: 0.1611764705882353}}}
+        #cauchyalpha = {"sparsestwhole": {64: {0.02: 0.0011892071150027212, 0.05: 0.05318295896944989, 0.1: 0.17817974362806763}, 128: {0.02: 0.009360637232664544, 0.05: 0.09734539534337833, 0.1: 0.32613788179066194}, 256: {0.02: 0.004100966752495598, 0.05: 0.09734539534337833, 0.1: 0.32613788179066194}, 512: {0.02: 0.0017966648943927722, 0.05: 0.09734539534337833, 0.1: 0.17817974362806763}}, "sparsewhole": {64: {0.02: 0.00015108090691070758, 0.05: 0.008672488792828026, 0.1: 0.09734539534337833}, 128: {0.02: 0.07368062997280773, 0.05: 0.05318295896944989, 0.1: 0.17817974362806763}, 256: {0.02: 0.032280047427433914, 0.05: 0.09734539534337833, 0.1: 0.32613788179066194}, 512: {0.02: 0.01414213562373095, 0.05: 0.09734539534337833, 0.1: 0.17817974362806763}}, "whole": {64: {0.02: 0.0001, 0.05: 0.004738062997279315, 0.1: 0.05318295896944989}, 128: {0.02: 0.01414213562373095, 0.05: 0.05318295896944989, 0.1: 0.09734539534337833}, 256: {0.02: 0.07368062997280773, 0.05: 0.029055582082430587, 0.1: 0.17817974362806763}, 512: {0.02: 0.021366066756874972, 0.05: 0.09734539534337833, 0.1: 0.17817974362806763}}, "sparsestlimited": {64: {0.02: 0.0005210007309586913, 0.05: 0.004738062997279315, 0.1: 0.09734539534337833}, 128: {0.02: 0.002714417616594907, 0.05: 0.32613788179066194, 0.1: 0.17817974362806763}, 256: {0.02: 0.5799642800220423, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}, 512: {0.02: 0.16817928305074292, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}}, "sparselimited": {64: {0.02: 3.3503164750652652e-06, 0.05: 0.00042211342507443144, 0.1: 0.004738062997279315}, 128: {0.02: 2.054539912180901e-05, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}, 256: {0.02: 6.883358916458818e-05, 0.05: 0.32613788179066194, 0.1: 0.17817974362806763}, 512: {0.02: 0.17817974362806763, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}}, "limited": {64: {0.02: 2.765365240491261e-06, 0.05: 6.132375635173039e-06, 0.1: 0.00042211342507443144}, 128: {0.02: 0.0002689296879997083, 0.05: 3.7606030930863934e-05, 0.1: 0.17817974362806763}, 256: {0.02: 9.72492472466073e-05, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}, 512: {0.02: 0.12026901270703146, 0.05: 0.17817974362806763, 0.1: 0.17817974362806763}}}
+        #haaralpha = {"sparsestwhole": {64: {0.01: 30.0, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 128: {0.01: 8.642857142857142, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 256: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 512: {0.01: 4.371428571428571, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "sparsewhole": {64: {0.01: 30.0, 0.05: 12.914285714285713, 0.1: 4.371428571428571}, 128: {0.01: 30.0, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 256: {0.01: 6.507142857142856, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 512: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "whole": {64: {0.01: 30.0, 0.05: 25.728571428571428, 0.1: 8.642857142857142}, 128: {0.01: 30.0, 0.05: 8.642857142857142, 0.1: 4.371428571428571}, 256: {0.01: 15.049999999999999, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 512: {0.01: 4.371428571428571, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "sparsestlimited": {64: {0.01: 30.0, 0.05: 12.914285714285713, 0.1: 4.371428571428571}, 128: {0.01: 2.2357142857142858, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 256: {0.01: 0.1, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 512: {0.01: 0.1, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "sparselimited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 12.914285714285713}, 128: {0.01: 23.592857142857145, 0.05: 8.642857142857142, 0.1: 4.371428571428571}, 256: {0.01: 2.2357142857142858, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 512: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "limited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 19.321428571428573}, 128: {0.01: 30.0, 0.05: 8.642857142857142, 0.1: 4.371428571428571}, 256: {0.01: 4.371428571428571, 0.05: 6.507142857142856, 0.1: 4.371428571428571}, 512: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}}
+        #haaralpha = {"sparsestwhole": {64: {0.02: 18.138420703071393, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 128: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 256: {0.02: 3.661388283197873, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}, 512: {0.02: 3.661388283197873, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "sparsewhole": {64: {0.02: 60.230259343740826, 0.05: 12.742749857031335, 0.1: 4.832930238571752}, 128: {0.02: 12.157969509318965, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 256: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 512: {0.02: 2.4541853911988967, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "whole": {64: {0.02: 134.05764160338668, 0.05: 20.6913808111479, 0.1: 7.847599703514611}, 128: {0.02: 27.0606292727936, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 8.149343595525918, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}}, "sparsestlimited": {64: {0.02: 60.230259343740826, 0.05: 12.742749857031335, 0.1: 4.832930238571752}, 128: {0.02: 12.157969509318965, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 256: {0.02: 0.33205900518969655, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 512: {0.02: 0.22257523554448713, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "sparselimited": {64: {0.02: 241.64651192858759, 0.05: 33.59818286283781, 0.1: 12.742749857031335}, 128: {0.02: 12.157969509318965, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 3.661388283197873, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 0.7390811129476478, 0.05: 1.8329807108324356, 0.1: 1.8329807108324356}}, "limited": {64: {0.02: 572.5142703256575, 0.05: 88.58667904100822, 0.1: 20.6913808111479}, 128: {0.02: 18.138420703071393, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 8.149343595525918, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 1.6450115280080442, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}}}
 
-        tikhoalpha = {'sparsestwhole': {1024: {0.05: 19.306977288832496, 0.02: 10.0}}, 'sparsewhole': {1024: {0.05: 10.0, 0.02: 19.306977288832496}}, 'whole': {1024: {0.05: 19.306977288832496, 0.02: 19.306977288832496}}, 'sparsestlimited': {1024: {0.05: 5.17947467923121, 0.02: 10.0}}, 'sparselimited': {1024: {0.05: 19.306977288832496, 0.02: 10.0}}, 'limited': {1024: {0.05: 19.306977288832496, 0.02: 19.306977288832496}}}
-        tvalpha = {'sparsestwhole': {1024: {0.05: 2.6826957952797246, 0.02: 2.6826957952797246}}, 'sparsewhole': {1024: {0.05: 2.6826957952797246, 0.02: 2.6826957952797246}}, 'whole': {1024: {0.05: 2.6826957952797246, 0.02: 5.17947467923121}}, 'sparsestlimited': {1024: {0.05: 5.17947467923121, 0.02: 1.3894954943731375}}, 'sparselimited': {1024: {0.05: 2.6826957952797246, 0.02: 2.6826957952797246}}, 'limited': {1024: {0.05: 2.6826957952797246, 0.02: 2.6826957952797246}}}
-        cauchyalpha = {'sparsestwhole': {1024: {0.05: 0.08929132803668435, 0.02: 0.0005016969106227038}}, 'sparsewhole': {1024: {0.05: 0.08929132803668435, 0.02: 0.003986470631277378}}, 'whole': {1024: {0.05: 0.08929132803668435, 0.02: 0.003986470631277378}}, 'sparsestlimited': {1024: {0.05: 0.08929132803668435, 0.02: 0.08929132803668435}}, 'sparselimited': {1024: {0.05: 0.08929132803668435, 0.02: 0.08929132803668435}}, 'limited': {1024: {0.05: 0.08929132803668435, 0.02: 0.08929132803668435}}}
-        haaralpha = {'sparsestwhole': {1024: {0.05: 1.3894954943731375, 0.02: 3.1622776601683795}}, 'sparsewhole': {1024: {0.05: 1.3894954943731375, 0.02: 3.1622776601683795}}, 'whole': {1024: {0.05: 3.1622776601683795, 0.02: 3.1622776601683795}}, 'sparsestlimited': {1024: {0.05: 1.3894954943731375, 0.02: 0.2682695795279726}}, 'sparselimited': {1024: {0.05: 3.1622776601683795, 0.02: 0.6105402296585329}}, 'limited': {1024: {0.05: 3.1622776601683795, 0.02: 3.1622776601683795}}}
-
-        angles = {'sparsewhole': 45, 'sparselimited': (0, 45, 45) }
-        noises = (0.02,)
-        sizes = (1024,)
+        angles = {'sparsestwhole': 10, 'sparsewhole': 30, 'whole': 90, 'sparsestlimited': (0, 90, 10),
+                  'sparselimited': (0, 90, 30), 'limited': (0, 90, 90)}
+        noises = (0.015,)
+        sizes = (512,)
         #angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
-
+		
+		
         for _ in range(0,1):
             for size in sizes:
                 for angletype,theta in angles.items():
                     for noise in noises:
-                        t = tomography("shepp.png", size, theta, noise, crimefree=True, commonprefix='/results/')
-
+                        t = tomography("shepp.png", size, theta, noise, crimefree=True, commonprefix='/resultsmap/')
+                        
+                        
                         res = t.map_tikhonov(tikhoalpha[angletype][size][noise], order=1, retim=False)
                         t.saveresult(res)
 
@@ -918,7 +1170,7 @@ if __name__ == "__main__":
 
                         res = t.map_wavelet(haaralpha[angletype][size][noise], type='haar', retim=False)
                         t.saveresult(res)
-
+                        
                         res = t.mwg_tv(tvalpha[angletype][size][noise], mapstart=True, M=100000, Madapt=50000,
                                        retim=False, thinning=250)
                         t.saveresult(res)
@@ -926,24 +1178,27 @@ if __name__ == "__main__":
                         res = t.mwg_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=100000, Madapt=50000,
                                            retim=False, thinning=250)
                         t.saveresult(res)
-
-                        res = t.mwg_wavelet(haaralpha[angletype][size][noise], mapstart=True, type='haar', M=100000,
-                                            Madapt=50000, retim=False, thinning=250)
-                        t.saveresult(res)
-
+						
                         res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,
-                                         thinning=1)
+                                             thinning=1)
                         t.saveresult(res)
 
                         res = t.hmcmc_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
                                              retim=False, thinning=1)
                         t.saveresult(res)
 
-                        res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
-                                              retim=False, thinning=1)
-                        t.saveresult(res)
+                        #res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
+                        #                      retim=False, thinning=1)
+                        #t.saveresult(res)
+                        
+                        
 
-                        res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,
+                        #res = t.mwg_wavelet(haaralpha[angletype][size][noise], mapstart=True, type='haar', M=100000,
+                        #                    Madapt=50000, retim=False, thinning=250)
+                        #t.saveresult(res)
+                        
+                        '''
+						res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,
                                          thinning=1, variant='ehmc')
                         t.saveresult(res)
 
@@ -954,6 +1209,12 @@ if __name__ == "__main__":
                         res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
                                               retim=False, thinning=1, variant='ehmc')
                         t.saveresult(res)
+                        '''
+
+
+                        
+
+
 
 
         #t = tomography("shepp.png", 128, theta, 0.05, crimefree=True, commonprefix='/results/')
