@@ -519,13 +519,13 @@ class tomography:
         self.Q.Ly = empty
         self.Q.a = alpha
         self.Q.s2 = self.lhsigmsq
-        self.Q.b = 0.01
+        self.Q.b = 0.001
         self.Q.logdensity = ltikhonov
         self.Q.gradi = tikhonov_grad
         self.Q.y = self.lines
         if (mapstart):
             x0 = np.reshape(self.map_tikhonov(alpha,maxiter=150),(-1,1))
-            x0 = x0 + 0.01*np.random.rand(self.dim*self.dim,1)
+            x0 = x0 + 0.000001*np.random.rand(self.dim*self.dim,1)
         else:
             x0 = 0.0 + 0.00*np.random.randn(self.dim * self.dim, 1)
         print("Running  " + variant.upper() + " for Tikhonov prior.")
@@ -1011,7 +1011,7 @@ if __name__ == "__main__":
         noises = ( 0.015,)
         sizes = (512,)
 
-        
+        '''
         alphas = np.geomspace(0.1,1000,15)
         tikhoalpha = NestedDefaultDict()
         for size in sizes:
@@ -1104,6 +1104,8 @@ if __name__ == "__main__":
         f.close()
         print(haaralpha)
         exit(0)
+        
+        '''
 
         #--file-name viipaleet/299.mat
         #4 image sizes, 6 angle types, 3 noise levels
@@ -1145,6 +1147,11 @@ if __name__ == "__main__":
         #haaralpha = {"sparsestwhole": {64: {0.01: 30.0, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 128: {0.01: 8.642857142857142, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 256: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 512: {0.01: 4.371428571428571, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "sparsewhole": {64: {0.01: 30.0, 0.05: 12.914285714285713, 0.1: 4.371428571428571}, 128: {0.01: 30.0, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 256: {0.01: 6.507142857142856, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 512: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "whole": {64: {0.01: 30.0, 0.05: 25.728571428571428, 0.1: 8.642857142857142}, 128: {0.01: 30.0, 0.05: 8.642857142857142, 0.1: 4.371428571428571}, 256: {0.01: 15.049999999999999, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 512: {0.01: 4.371428571428571, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "sparsestlimited": {64: {0.01: 30.0, 0.05: 12.914285714285713, 0.1: 4.371428571428571}, 128: {0.01: 2.2357142857142858, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 256: {0.01: 0.1, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}, 512: {0.01: 0.1, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "sparselimited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 12.914285714285713}, 128: {0.01: 23.592857142857145, 0.05: 8.642857142857142, 0.1: 4.371428571428571}, 256: {0.01: 2.2357142857142858, 0.05: 4.371428571428571, 0.1: 2.2357142857142858}, 512: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}, "limited": {64: {0.01: 30.0, 0.05: 30.0, 0.1: 19.321428571428573}, 128: {0.01: 30.0, 0.05: 8.642857142857142, 0.1: 4.371428571428571}, 256: {0.01: 4.371428571428571, 0.05: 6.507142857142856, 0.1: 4.371428571428571}, 512: {0.01: 2.2357142857142858, 0.05: 2.2357142857142858, 0.1: 2.2357142857142858}}}
         #haaralpha = {"sparsestwhole": {64: {0.02: 18.138420703071393, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 128: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 256: {0.02: 3.661388283197873, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}, 512: {0.02: 3.661388283197873, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "sparsewhole": {64: {0.02: 60.230259343740826, 0.05: 12.742749857031335, 0.1: 4.832930238571752}, 128: {0.02: 12.157969509318965, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 256: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 512: {0.02: 2.4541853911988967, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "whole": {64: {0.02: 134.05764160338668, 0.05: 20.6913808111479, 0.1: 7.847599703514611}, 128: {0.02: 27.0606292727936, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 8.149343595525918, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}}, "sparsestlimited": {64: {0.02: 60.230259343740826, 0.05: 12.742749857031335, 0.1: 4.832930238571752}, 128: {0.02: 12.157969509318965, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 256: {0.02: 0.33205900518969655, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 512: {0.02: 0.22257523554448713, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "sparselimited": {64: {0.02: 241.64651192858759, 0.05: 33.59818286283781, 0.1: 12.742749857031335}, 128: {0.02: 12.157969509318965, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 3.661388283197873, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 0.7390811129476478, 0.05: 1.8329807108324356, 0.1: 1.8329807108324356}}, "limited": {64: {0.02: 572.5142703256575, 0.05: 88.58667904100822, 0.1: 20.6913808111479}, 128: {0.02: 18.138420703071393, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 8.149343595525918, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 1.6450115280080442, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}}}
 
+        #Oksattomasta puusta lasketut parametrit (299)
+        tikhoalpha = {"sparsestwhole": {512: {0.015: 10.0}}, "sparsewhole": {512: {0.015: 10.0}}, "whole": {512: {0.015: 10.0}}, "sparsestlimited": {512: {0.015: 0.372759372031494}}, "sparselimited": {512: {0.015: 0.7196856730011519}}, "limited": {512: {0.015: 2.6826957952797246}}}
+        tvalpha = {"sparsestwhole": {512: {0.015: 0.7196856730011519}}, "sparsewhole": {512: {0.015: 1.3894954943731375}}, "whole": {512: {0.015: 2.6826957952797246}}, "sparsestlimited": {512: {0.015: 0.1}}, "sparselimited": {512: {0.015: 0.372759372031494}}, "limited": {512: {0.015: 0.372759372031494}}}
+        haaralpha = {"sparsestwhole": {512: {0.015: 1.3894954943731375}}, "sparsewhole": {512: {0.015: 1.3894954943731375}}, "whole": {512: {0.015: 3.1622776601683795}}, "sparsestlimited": {512: {0.015: 0.2682695795279726}}, "sparselimited": {512: {0.015: 1.3894954943731375}}, "limited": {512: {0.015: 1.3894954943731375}}}
+        cauchyalpha = {"sparsestwhole": {512: {0.015: 0.0014142135623730952}}, "sparsewhole": {512: {0.015: 0.003986470631277378}}, "whole": {512: {0.015: 0.031676392175331615}}, "sparsestlimited": {512: {0.015: 2.0}}, "sparselimited": {512: {0.015: 0.7095065752033103}}, "limited": {512: {0.015: 0.25169979012836524}}}
         angles = {'sparsestwhole': 10, 'sparsewhole': 30, 'whole': 90, 'sparsestlimited': (0, 90, 10),
                   'sparselimited': (0, 90, 30), 'limited': (0, 90, 90)}
         noises = (0.015,)
@@ -1152,13 +1159,17 @@ if __name__ == "__main__":
         #angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
 		
 		
-        for _ in range(0,1):
+        for viipale in range(120,160,4):
             for size in sizes:
                 for angletype,theta in angles.items():
                     for noise in noises:
-                        t = tomography("shepp.png", size, theta, noise, crimefree=True, commonprefix='/resultsmap/')
-                        
-                        
+                        t = tomography("viipaleet/" + str(viipale) +".mat", size, theta, noise, crimefree=True, commonprefix='/results/')
+
+                        # res = t.hmcmc_wavelet(haaralpha["whole"][size][noise], retim=True)
+                        # plt.imshow(res)
+                        # plt.show()
+                        # exit(1)
+
                         res = t.map_tikhonov(tikhoalpha[angletype][size][noise], order=1, retim=False)
                         t.saveresult(res)
 
@@ -1170,13 +1181,18 @@ if __name__ == "__main__":
 
                         res = t.map_wavelet(haaralpha[angletype][size][noise], type='haar', retim=False)
                         t.saveresult(res)
-                        
+
+                        '''
                         res = t.mwg_tv(tvalpha[angletype][size][noise], mapstart=True, M=100000, Madapt=50000,
                                        retim=False, thinning=250)
                         t.saveresult(res)
 
                         res = t.mwg_cauchy(cauchyalpha[angletype][size][noise], mapstart=True, M=100000, Madapt=50000,
                                            retim=False, thinning=250)
+                        t.saveresult(res)
+
+                        res = t.mwg_wavelet(haaralpha[angletype][size][noise], mapstart=True, type='haar', M=100000,
+                                           Madapt=50000, retim=False, thinning=250)
                         t.saveresult(res)
 						
                         res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,
@@ -1187,15 +1203,11 @@ if __name__ == "__main__":
                                              retim=False, thinning=1)
                         t.saveresult(res)
 
-                        #res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
-                        #                      retim=False, thinning=1)
-                        #t.saveresult(res)
-                        
-                        
+                        res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=350, Madapt=50,
+                                             retim=False, thinning=1)
+                        t.saveresult(res)
+                        '''
 
-                        #res = t.mwg_wavelet(haaralpha[angletype][size][noise], mapstart=True, type='haar', M=100000,
-                        #                    Madapt=50000, retim=False, thinning=250)
-                        #t.saveresult(res)
                         
                         '''
 						res = t.hmcmc_tv(tvalpha[angletype][size][noise], mapstart=True, M=350, Madapt=50, retim=False,
