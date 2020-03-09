@@ -221,8 +221,18 @@ for fname in os.listdir():
                     #method = str(f['method'][()])
                     method = 'cm-' + method2
                     #img = f['chain'][()];
-                    img = np.mean(chain_orig, 1)
-                    img = np.reshape(img, (tsize, tsize))
+                    if (method2 == 'ehmc'):
+                        img = np.mean(chain_orig, 1)
+                        img = np.reshape(img, (tsize, tsize))
+                    elif (method2 == 'hmc'):
+                        img = np.mean(chain_orig[:, 100:], 1)
+                        img = np.reshape(img, (tsize, tsize))
+                    elif (method2 == 'mwg'):
+                        img = np.mean(chain_orig[:, 1600:], 1)
+                        img = np.reshape(img, (tsize, tsize))
+                    else:
+                        print("Ei löydy")
+                        exit(1)
                     fname = noisestring + '_' + method + '_' + prior + '_' + targetsize + '_' + maxangle + '_' + noangles + '_' + str(imagename)
                     talleta(img,fname)
                     #data_tuple = (prior, method, targetsize, noise, alpha,maxangle,noangles,l1,l2,duration)
@@ -234,10 +244,10 @@ for fname in os.listdir():
                         img = np.var(chain_orig, 1)
                         img = np.reshape(img, (tsize, tsize))
                     elif (method2 == 'hmc'):
-                        img = np.var(chain_orig[:, 50:], 1)
+                        img = np.var(chain_orig[:, 100:], 1)
                         img = np.reshape(img, (tsize, tsize))
                     elif (method2 == 'mwg'):
-                        img = np.var(chain_orig[:, cshape[1] // 2:], 1)
+                        img = np.var(chain_orig[:, 1600:], 1)
                         img = np.reshape(img, (tsize, tsize))
                     else:
                         print("Ei löydy")
