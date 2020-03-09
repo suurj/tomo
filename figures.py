@@ -43,7 +43,7 @@ def correlationrow( M):
 
 
 
-dire = '/home/user/tomo/tv_hmc_30/'
+dire = '/home/user/tomo/results/'
 os.chdir(dire)
 
 
