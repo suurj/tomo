@@ -42,6 +42,10 @@ class container:
         self.chain = None
         self.prefix = ''
 
+    def intermedfilename(self):
+        return self.globalprefix + '/' + time.strftime("%Y-%b-%d_%H_%M_%S") + '+' + self.prior + '+' + self.method + '+' + str(self.noise) + '+' + str(self.theta[0])+ '_' + str(self.theta[-1]) + '-'  + str(self.targetsize) + 'x' + str(len(self.theta))
+
+
     def finish(self,result=None,chain=None,error=(-1.0,-1.0),iters=None,thinning=-1):
         self.l1 = error[0]
         self.l2 = error[1]
@@ -469,7 +473,7 @@ class tomography:
         else:
             return solution
 
-    def hmcmc_tikhonov(self, alpha, M=100, Madapt=20, order=1,mapstart=False,thinning=1,retim=True,variant='hmc'):
+    def hmcmc_tikhonov(self, alpha, M=100, Madapt=20, order=1,mapstart=False,thinning=1,retim=True,variant='hmc',interstep=100):
         res = None
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tikhonov',method=variant,levels=order,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
@@ -530,9 +534,9 @@ class tomography:
             x0 = 0.0 + 0.00*np.random.randn(self.dim * self.dim, 1)
         print("Running  " + variant.upper() + " for Tikhonov prior.")
         if (variant == 'hmc'):
-            solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning)
+            solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning,istep=interstep,intername=res.intermedfilename)
         else:
-            solution, chain = ehmc(M, x0, self.Q, Madapt, kappa=0.75, cmonly=retim,thinning=thinning,stepsize=0.002)
+            solution, chain = ehmc(M, x0, self.Q, Madapt, kappa=0.75, cmonly=retim,thinning=thinning,stepsize=0.002,istep=interstep,intername=res.intermedfilename)
         #solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, kappa=0.75, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -542,7 +546,7 @@ class tomography:
         else:
             return solution
 
-    def hmcmc_tv(self, alpha, M=100, Madapt=20,mapstart=False,thinning=1,retim=True,variant='hmc'):
+    def hmcmc_tv(self, alpha, M=100, Madapt=20,mapstart=False,thinning=1,retim=True,variant='hmc',interstep=100):
         res = None
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method=variant,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
@@ -588,9 +592,9 @@ class tomography:
             x0 = 0.0 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running " + variant.upper() + " for TV prior.")
         if (variant == 'hmc'):
-            solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning)
+            solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning,istep=interstep,intername=res.intermedfilename)
         else:
-            solution, chain = ehmc(M, x0, self.Q, L=50, Madapt=Madapt,  cmonly=retim,thinning=thinning,stepsize=0.002)
+            solution, chain = ehmc(M, x0, self.Q, L=50, Madapt=Madapt,  cmonly=retim,thinning=thinning,stepsize=0.002,istep=interstep,intername=res.intermedfilename)
         #solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, kappa=0.75, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -600,7 +604,7 @@ class tomography:
         else:
             return solution
 
-    def hmcmc_cauchy(self, alpha, M=100, Madapt=20,thinning=1,mapstart=False,retim=True,variant='hmc'):
+    def hmcmc_cauchy(self, alpha, M=100, Madapt=20,thinning=1,mapstart=False,retim=True,variant='hmc',interstep=100):
         res = None
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method=variant,noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
@@ -649,9 +653,9 @@ class tomography:
         #solution,chain = ehmc(M, x0, self.Q, epstrials=25,Ltrials=25, L=50, delta=0.65,cmonly=False, thinning=thinning)
         #solution = np.median(chain,axis=1)
         if(variant=='hmc'):
-            solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=retim, thinning=thinning)
+            solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=retim, thinning=thinning,istep=interstep,intername=res.intermedfilename)
         else:
-            solution,chain = ehmc(M, x0, self.Q, Madapt, cmonly=retim, thinning=thinning)
+            solution,chain = ehmc(M, x0, self.Q, Madapt, cmonly=retim, thinning=thinning,istep=interstep,intername=res.intermedfilename)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
@@ -660,7 +664,7 @@ class tomography:
         else:
             return solution
 
-    def hmcmc_wavelet(self, alpha, M=100, Madapt=20, type='haar',levels=None,mapstart=False,thinning=1,retim=True,variant='hmc'):
+    def hmcmc_wavelet(self, alpha, M=100, Madapt=20, type='haar',levels=None,mapstart=False,thinning=1,retim=True,variant='hmc',interstep=100):
         res = None
         if (levels is None):
             levels = int(np.floor(np.log2(self.dim))-1)
@@ -691,9 +695,9 @@ class tomography:
             x0 = 0.2 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running " + variant.upper() + " for Besov prior (" + type + ' '  + str(levels) + ').' )
         if (variant == 'hmc'):
-            solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning)
+            solution, chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75,cmonly=retim, thinning=thinning,istep=interstep,intername=res.intermedfilename)
         else:
-            solution, chain = ehmc(M, x0, self.Q, Madapt,  cmonly=retim,thinning=thinning)
+            solution, chain = ehmc(M, x0, self.Q, Madapt,  cmonly=retim,thinning=thinning,istep=interstep,intername=res.intermedfilename)
         #solution,chain = hmc(M, x0, self.Q, Madapt, de=0.65, gamma=0.05, t0=10.0, epsilonwanted=None, kappa=0.75, cmonly=retim,thinning=thinning)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
@@ -703,7 +707,7 @@ class tomography:
         else:
             return solution
 
-    def mwg_tv(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True):
+    def mwg_tv(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True,interstep=100000):
         res = None
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='tv',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
@@ -747,7 +751,7 @@ class tomography:
         else:
             x0 = 0.0 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running MwG MCMC for TV prior.")
-        solution,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim,thinning=thinning)
+        solution,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim,thinning=thinning,interstep=interstep,intername=res.intermedfilename)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
@@ -756,7 +760,7 @@ class tomography:
         else:
             return solution
 
-    def mwg_cauchy(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True):
+    def mwg_cauchy(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True,interstep=100000):
         res = None
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
@@ -798,7 +802,7 @@ class tomography:
         else:
             x0 = 0.0 + 0.00*np.random.randn(self.dim * self.dim, 1)
         print("Running MwG MCMC for Cauchy prior.")
-        solution, chain = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim, thinning=thinning)
+        solution, chain = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim, thinning=thinning,interstep=interstep,intername=res.intermedfilename)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
@@ -807,7 +811,7 @@ class tomography:
         else:
             return solution
 
-    def mwg_wavelet(self, alpha, M=10000, Madapt=1000,type='haar',levels=None,mapstart=False,thinning=10,retim=True):
+    def mwg_wavelet(self, alpha, M=10000, Madapt=1000,type='haar',levels=None,mapstart=False,thinning=10,retim=True,interstep=100000):
         res = None
         if (levels is None):
             levels = int(np.floor(np.log2(self.dim))-1)
@@ -835,7 +839,7 @@ class tomography:
         else:
             x0 = 0.0 + 0.01*np.random.randn(self.dim * self.dim, 1)
         print("Running MwG MCMC for Besov prior (" + type + ' '  + str(levels) + ').' )
-        solution,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim,thinning=thinning)
+        solution,chain= mwgt(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim,thinning=thinning,interstep=interstep,intername=res.intermedfilename)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
@@ -962,17 +966,18 @@ if __name__ == "__main__":
         from scipy.stats import zscore
         #m = scipy.io.loadmat('Walnut.mat')['FBP1200'].T
         #m = resize(m, (328, 328), anti_aliasing=False, preserve_range=True,order=1, mode='symmetric')
-        t = tomography(dataload=True)
+        t = tomography(targetsize=64,commonprefix='/isot')
 
         #t.dataload('LotusData256.mat',"A",'LotusData256.mat','m')
         #t.dataload('CheeseData_256x180.mat', "A", 'CheeseData_256x180.mat', 'm',imsize=256)
         #t.dataload('WalnutData164.mat', "A", 'WalnutData164.mat', 'm')
 
-        t.lhsigmsq = 0.05
-        t.Q = argumentspack(M=t.radonoperator, y=t.lines, b=0.01, s2=0.05)
-        t.targetimage = np.random.randn(t.dim,t.dim)
-        t.theta = np.array([0,90])
-        r = t.map_tikhonov(alpha=500,maxiter=150)
+        #t.lhsigmsq = 0.05
+        #t.Q = argumentspack(M=t.radonoperator, y=t.lines, b=0.01, s2=0.05)
+        #t.targetimage = np.random.randn(t.dim,t.dim)
+        #t.theta = np.array([0,90])
+        #r = t.hmcmc_tv(alpha=100, M=100, Madapt=20, thinning=1, retim=False, interstep=9, variant='ehmc')
+        r=t.map_cauchy(alpha=0.01,retim=True)
 
 
         plt.imshow(r)
@@ -1006,12 +1011,13 @@ if __name__ == "__main__":
                 return repr(dict(self))
 
 
+        '''
         angles = {'sparsestwhole': 10, 'sparsewhole': 30, 'whole': 90, 'sparsestlimited': (0, 90, 10),
                   'sparselimited': (0, 90, 30), 'limited': (0, 90, 90)}
         noises = ( 0.015,)
         sizes = (512,)
 
-        '''
+
         alphas = np.geomspace(0.1,1000,15)
         tikhoalpha = NestedDefaultDict()
         for size in sizes:
@@ -1019,8 +1025,8 @@ if __name__ == "__main__":
                     for noise in noises:
                         bestl2 = np.Inf
                         best = 0
-                        t = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
-                        t2 = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                        t = tomography("oljy.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                        t2 = tomography("oljy.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
                         for alpha in alphas:
                             res = t.map_tikhonov(alpha, retim=False,maxiter=500)
                             res2 = t2.map_tikhonov(alpha, retim=False, maxiter=500)
@@ -1030,7 +1036,7 @@ if __name__ == "__main__":
                         tikhoalpha[angletype][size][noise] = best
 
         jsontik = json.dumps(tikhoalpha)
-        f = open("tikhonov_oksallinen.json", "w")
+        f = open("tikhonov_oljy.json", "w")
         f.write(jsontik)
         f.close()
         print(tikhoalpha)
@@ -1042,8 +1048,8 @@ if __name__ == "__main__":
                 for noise in noises:
                     bestl2 = np.Inf
                     best = 0
-                    t = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    t2 = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t = tomography("oljy.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t2 = tomography("oljy.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
                     for alpha in alphas:
                         res = t.map_tv(alpha, retim=False, maxiter=500)
                         res2 = t2.map_tv(alpha, retim=False, maxiter=500)
@@ -1053,20 +1059,20 @@ if __name__ == "__main__":
                     tvalpha[angletype][size][noise] = best
 
         jsontv = json.dumps(tvalpha)
-        f = open("tv_oksallinen.json", "w")
+        f = open("tv_oljy.json", "w")
         f.write(jsontv)
         f.close()
         print(tvalpha)
 
-        alphas = np.geomspace(0.000001, 2, 15)
+        alphas = np.geomspace(0.000001, 5, 15)
         cauchyalpha = NestedDefaultDict()
         for size in sizes:
             for angletype, angle in angles.items():
                 for noise in noises:
                     bestl2 = np.Inf
                     best = 0
-                    t = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    t2 = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t = tomography("oljy.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t2 = tomography("oljy.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
                     for alpha in alphas:
                         res = t.map_cauchy(alpha, retim=False, maxiter=500)
                         res2 = t2.map_cauchy(alpha, retim=False, maxiter=500)
@@ -1076,7 +1082,7 @@ if __name__ == "__main__":
                     cauchyalpha[angletype][size][noise] = best
 
         jsoncau= json.dumps(cauchyalpha)
-        f = open("cauchy_oksallinen.json", "w")
+        f = open("cauchy_oljy.json", "w")
         f.write(jsoncau)
         f.close()
         print(cauchyalpha)
@@ -1088,8 +1094,8 @@ if __name__ == "__main__":
                 for noise in noises:
                     bestl2 = np.Inf
                     best = 0
-                    t = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
-                    t2 = tomography("viipaleet/200.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t = tomography("oljy.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
+                    t2 = tomography("oljy.mat", size, angle, noise, crimefree=True, commonprefix='/results/')
                     for alpha in alphas:
                         res = t.map_wavelet(alpha, type='haar', retim=False, maxiter=500)
                         res2 = t2.map_wavelet(alpha, type='haar', retim=False, maxiter=500)
@@ -1099,13 +1105,13 @@ if __name__ == "__main__":
                     haaralpha[angletype][size][noise] = best
 
         jsonhaar = json.dumps(haaralpha)
-        f = open("haar_oksallinen.json", "w")
+        f = open("haar_oljy.json", "w")
         f.write(jsonhaar)
         f.close()
         print(haaralpha)
         exit(0)
-        
         '''
+
 
         #--file-name viipaleet/299.mat
         #4 image sizes, 6 angle types, 3 noise levels
@@ -1148,22 +1154,28 @@ if __name__ == "__main__":
         #haaralpha = {"sparsestwhole": {64: {0.02: 18.138420703071393, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 128: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 256: {0.02: 3.661388283197873, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}, 512: {0.02: 3.661388283197873, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "sparsewhole": {64: {0.02: 60.230259343740826, 0.05: 12.742749857031335, 0.1: 4.832930238571752}, 128: {0.02: 12.157969509318965, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 256: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 512: {0.02: 2.4541853911988967, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "whole": {64: {0.02: 134.05764160338668, 0.05: 20.6913808111479, 0.1: 7.847599703514611}, 128: {0.02: 27.0606292727936, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 8.149343595525918, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 5.462408915159338, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}}, "sparsestlimited": {64: {0.02: 60.230259343740826, 0.05: 12.742749857031335, 0.1: 4.832930238571752}, 128: {0.02: 12.157969509318965, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 256: {0.02: 0.33205900518969655, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}, 512: {0.02: 0.22257523554448713, 0.05: 1.8329807108324356, 0.1: 1.1288378916846888}}, "sparselimited": {64: {0.02: 241.64651192858759, 0.05: 33.59818286283781, 0.1: 12.742749857031335}, 128: {0.02: 12.157969509318965, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 3.661388283197873, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 0.7390811129476478, 0.05: 1.8329807108324356, 0.1: 1.8329807108324356}}, "limited": {64: {0.02: 572.5142703256575, 0.05: 88.58667904100822, 0.1: 20.6913808111479}, 128: {0.02: 18.138420703071393, 0.05: 7.847599703514611, 0.1: 4.832930238571752}, 256: {0.02: 8.149343595525918, 0.05: 4.832930238571752, 0.1: 2.9763514416313175}, 512: {0.02: 1.6450115280080442, 0.05: 2.9763514416313175, 0.1: 1.8329807108324356}}}
 
         #Oksattomasta puusta lasketut parametrit (299)
-        tikhoalpha = {"sparsestwhole": {512: {0.015: 10.0}}, "sparsewhole": {512: {0.015: 10.0}}, "whole": {512: {0.015: 10.0}}, "sparsestlimited": {512: {0.015: 0.372759372031494}}, "sparselimited": {512: {0.015: 0.7196856730011519}}, "limited": {512: {0.015: 2.6826957952797246}}}
-        tvalpha = {"sparsestwhole": {512: {0.015: 0.7196856730011519}}, "sparsewhole": {512: {0.015: 1.3894954943731375}}, "whole": {512: {0.015: 2.6826957952797246}}, "sparsestlimited": {512: {0.015: 0.1}}, "sparselimited": {512: {0.015: 0.372759372031494}}, "limited": {512: {0.015: 0.372759372031494}}}
-        haaralpha = {"sparsestwhole": {512: {0.015: 1.3894954943731375}}, "sparsewhole": {512: {0.015: 1.3894954943731375}}, "whole": {512: {0.015: 3.1622776601683795}}, "sparsestlimited": {512: {0.015: 0.2682695795279726}}, "sparselimited": {512: {0.015: 1.3894954943731375}}, "limited": {512: {0.015: 1.3894954943731375}}}
-        cauchyalpha = {"sparsestwhole": {512: {0.015: 0.0014142135623730952}}, "sparsewhole": {512: {0.015: 0.003986470631277378}}, "whole": {512: {0.015: 0.031676392175331615}}, "sparsestlimited": {512: {0.015: 2.0}}, "sparselimited": {512: {0.015: 0.7095065752033103}}, "limited": {512: {0.015: 0.25169979012836524}}}
-        angles = {'sparsestwhole': 10, 'sparsewhole': 30, 'whole': 90, 'sparsestlimited': (0, 90, 10),
-                  'sparselimited': (0, 90, 30), 'limited': (0, 90, 90)}
+        # tikhoalpha = {"sparsestwhole": {512: {0.015: 10.0}}, "sparsewhole": {512: {0.015: 10.0}}, "whole": {512: {0.015: 10.0}}, "sparsestlimited": {512: {0.015: 0.372759372031494}}, "sparselimited": {512: {0.015: 0.7196856730011519}}, "limited": {512: {0.015: 2.6826957952797246}}}
+        # tvalpha = {"sparsestwhole": {512: {0.015: 0.7196856730011519}}, "sparsewhole": {512: {0.015: 1.3894954943731375}}, "whole": {512: {0.015: 2.6826957952797246}}, "sparsestlimited": {512: {0.015: 0.1}}, "sparselimited": {512: {0.015: 0.372759372031494}}, "limited": {512: {0.015: 0.372759372031494}}}
+        # haaralpha = {"sparsestwhole": {512: {0.015: 1.3894954943731375}}, "sparsewhole": {512: {0.015: 1.3894954943731375}}, "whole": {512: {0.015: 3.1622776601683795}}, "sparsestlimited": {512: {0.015: 0.2682695795279726}}, "sparselimited": {512: {0.015: 1.3894954943731375}}, "limited": {512: {0.015: 1.3894954943731375}}}
+        # cauchyalpha = {"sparsestwhole": {512: {0.015: 0.0014142135623730952}}, "sparsewhole": {512: {0.015: 0.003986470631277378}}, "whole": {512: {0.015: 0.031676392175331615}}, "sparsestlimited": {512: {0.015: 2.0}}, "sparselimited": {512: {0.015: 0.7095065752033103}}, "limited": {512: {0.015: 0.25169979012836524}}}
+        cauchyalpha = {"sparsestwhole": {512: {0.015: 1.6613921223433463}}, "sparsewhole": {512: {0.015: 0.18343256203795708}}, "whole": {512: {0.015: 0.5520447568369058}}, "sparsestlimited": {512: {0.015: 5.000000000000001}}, "sparselimited": {512: {0.015: 5.000000000000001}}, "limited": {512: {0.015: 5.000000000000001}}}
+        tikhoalpha={"sparsestwhole": {512: {0.015: 0.372759372031494}}, "sparsewhole": {512: {0.015: 0.372759372031494}}, "whole": {512: {0.015: 0.372759372031494}}, "sparsestlimited": {512: {0.015: 0.1}}, "sparselimited": {512: {0.015: 0.1}}, "limited": {512: {0.015: 0.1}}}
+        tvalpha = {"sparsestwhole": {512: {0.015: 0.1}}, "sparsewhole": {512: {0.015: 0.372759372031494}}, "whole": {512: {0.015: 0.7196856730011519}}, "sparsestlimited": {512: {0.015: 0.1}}, "sparselimited": {512: {0.015: 0.1}}, "limited": {512: {0.015: 0.1}}}
+        haaralpha = {"sparsestwhole": {512: {0.015: 0.6105402296585329}}, "sparsewhole": {512: {0.015: 0.6105402296585329}}, "whole": {512: {0.015: 0.6105402296585329}}, "sparsestlimited": {512: {0.015: 0.01}}, "sparselimited": {512: {0.015: 0.2682695795279726}}, "limited": {512: {0.015: 0.2682695795279726}}}
+
+        #angles = {'sparsestwhole': 10, 'sparsewhole': 30, 'whole': 90, 'sparsestlimited': (0, 90, 10),
+        #           'sparselimited': (0, 90, 30), 'limited': (0, 90, 90)}
+        angles = { 'whole': 90, }
         noises = (0.015,)
         sizes = (512,)
         #angles = {'sparsestwhole': 15, 'sparsewhole': 45, 'whole': 90, 'sparsestlimited': (0, 45, 15),'sparselimited': (0, 45, 45), 'limited': (0, 45, 90)}
 		
 		
-        for viipale in range(120,160,4):
+        for viipale in range(60,180):
             for size in sizes:
                 for angletype,theta in angles.items():
                     for noise in noises:
-                        t = tomography("viipaleet/" + str(viipale) +".mat", size, theta, noise, crimefree=True, commonprefix='/results/')
+                        t = tomography("viipaleet/" + str(viipale) + ".mat", size, theta, noise, crimefree=True, commonprefix='/apuresults/')
 
                         # res = t.hmcmc_wavelet(haaralpha["whole"][size][noise], retim=True)
                         # plt.imshow(res)
@@ -1173,11 +1185,11 @@ if __name__ == "__main__":
                         res = t.map_tikhonov(tikhoalpha[angletype][size][noise], order=1, retim=False)
                         t.saveresult(res)
 
-                        res = t.map_tv(tvalpha[angletype][size][noise], retim=False)
+                        res = t.mwg_tv(tvalpha[angletype][size][noise], retim=False,in)
                         t.saveresult(res)
 
-                        res = t.map_cauchy(cauchyalpha[angletype][size][noise], retim=False)
-                        t.saveresult(res)
+                        # res = t.map_cauchy(cauchyalpha[angletype][size][noise], retim=False)
+                        # t.saveresult(res)
 
                         res = t.map_wavelet(haaralpha[angletype][size][noise], type='haar', retim=False)
                         t.saveresult(res)

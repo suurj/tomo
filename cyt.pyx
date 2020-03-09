@@ -269,7 +269,7 @@ def buildtree(theta,r,logu,v,j,epsilon,theta0,r0,Q,initialdr,currgrad):
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True)
-def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=None,cmonly=False,thinning=1):
+def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=None,cmonly=False,thinning=1,istep=100,intername=time.time()):
     bar = tqdm(total=M,file=sys.stdout)
     theta0 = np.reshape(theta0,(-1,1))
     dim = theta0.shape[0]
@@ -340,6 +340,9 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
         else:
             epsilon = epsilonhat
             cmestimate = 1.0 / ((i-Madapt)) * ((i-Madapt-1) * cmestimate + theta0)
+            
+        if ((istep>1) and (i%istep == 0)):
+            savechain(theta[:,0:i//thinning],intername)    
     
     bar.close()
     print ("Final epsilon: " +  str(np.ravel(epsilon)))
@@ -352,7 +355,7 @@ def hmc(M,theta0,Q,Madapt,de=0.6,gamma=0.05,t0=10.0,kappa=0.75,epsilonwanted=Non
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True)
-def nonuts_hmc(M,theta0,Q,aburn=10,L=50,aexp=50,adaptcoeff=0.6,delta=0.65,cmonly=False,thinning=1):
+def nonuts_hmc(M,theta0,Q,aburn=10,L=50,aexp=50,adaptcoeff=0.6,delta=0.65,cmonly=False,thinning=1,istep=100,intername=time.time()):
     bar = tqdm(total=M,file=sys.stdout)
     theta0 = np.reshape(theta0,(-1,1))
     dim = theta0.shape[0]
@@ -434,6 +437,9 @@ def nonuts_hmc(M,theta0,Q,aburn=10,L=50,aexp=50,adaptcoeff=0.6,delta=0.65,cmonly
         if(cmonly == False and (k%thinning == 0)):
             theta[:, k//thinning] = np.ravel(x)
             
+        if ((istep>1) and (k%istep == 0)):
+            savechain(theta[:,0:k//thinning],intername)    
+            
 
     
     bar.close()
@@ -489,7 +495,7 @@ def longestbatch(theta,r,epsilon,L,Q,mass):
 @cython.boundscheck(False) 
 @cython.wraparound(False)
 @cython.cdivision(True)
-def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=False,thinning=1,mass=1,stepsize=None):
+def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=False,thinning=1,mass=1,stepsize=None,istep=100,intername=time.time()):
     Ltrials = np.int(np.floor(Madapt/2))
     epstrials = np.int(np.ceil(Madapt/2))
     bar = tqdm(total=M+Ltrials+epstrials,file=sys.stdout)
@@ -646,6 +652,8 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
         if(cmonly == False and (k%thinning == 0)):
             theta[:, k//thinning] = np.ravel(x)
             
+        if ((istep>1) and (k%istep == 0)):
+            savechain(theta[:,0:k//thinning],intername)    
 
     
     bar.close()
@@ -657,7 +665,19 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
     else:
         return cmestimate,None     
        
-
+def savechain(chain,intername):
+    import h5py
+    import os
+    filename = intername() + ".hdf5"
+    print(filename)
+    path = os.path.dirname(os.path.abspath(filename))
+    if not os.path.exists(path):
+        os.makedirs(path)
+    with h5py.File(filename, 'w') as f:
+        compression = 'gzip'
+        chain = chain.astype(np.float32)
+        f.create_dataset('chain', data=chain, compression=compression)
+    f.close()
 
 
 # Metropolis within-Gibbs function for TV prior and Gaussian likelihood.
@@ -667,7 +687,7 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
 @cython.boundscheck(False)
 @cython.wraparound(False) 
 @cython.cdivision(True)
-def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
+def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10,interstep=100000,intername=time.time()):
     bar = tqdm(total=N,file=sys.stdout)
     if (Nadapt >= N):
         raise Exception('Nadapt <= N.')
@@ -682,6 +702,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
     lhvariance = Q.s2
     samplebeta = Q.b
     cdef bint cm = cmonly
+    cdef int istep = interstep
     
     #np.random.seed(1)
     dimnumpy = x0.shape[0]
@@ -827,6 +848,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
                 if ((cm==0) and (i%thin == 0)):
                     chainv[j,i//thin] = values[j]
                     
+                    
                 #else:
                 if(i > adapt):
                     #cmestimate[j]  = 1.0 / ((i+1)) * ((i) * cmestimate[j] + values[j])
@@ -838,7 +860,9 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
                     chmeanv[j] = currentmean
                     currentvar = (i-1.0)/(i)*chdevv[j]*chdevv[j] + 1.0/(i+1.0)*(currentvalue-previousmean)*(currentvalue-previousmean)
                     chdevv[j] = sqrt(currentvar) 
-                
+             
+        if ((istep>1) and (i%istep == 0)):
+            savechain(chain[:,0:i//thin],intername)
         
     bar.close()
     if(cm):
@@ -853,7 +877,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
 @cython.boundscheck(False)
 @cython.wraparound(False) 
 @cython.cdivision(True)
-def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
+def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10,interstep=100000,intername=time.time()):
     bar = tqdm(total=N,file=sys.stdout)
     if (Nadapt >= N):
         raise Exception('Nadapt <= N.')
@@ -872,6 +896,8 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
     dimnumpy = x0.shape[0]
     cdef int dim = dimnumpy
     x = x0
+    
+    cdef int istep = interstep
     
     if not isinstance(M, sp.csc.csc_matrix):
         M = csc_matrix(M)
@@ -1017,7 +1043,11 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10):
                     currentmean = 1.0/(i+1.0)*(i*previousmean+currentvalue)
                     chmeanv[j] = currentmean
                     currentvar = (i-1.0)/(i)*chdevv[j]*chdevv[j]+ 1.0/(i+1.0)*(currentvalue-previousmean)*(currentvalue-previousmean)
-                    chdevv[j] = sqrt(currentvar) 
+                    chdevv[j] = sqrt(currentvar)
+                    
+        if ((istep>1) and (i%istep == 0)):
+            savechain(chain[:,0:i//thin],intername)            
+                    
     bar.close()     
     if(cm):
         return np.reshape(cmest,(-1,1)),None
