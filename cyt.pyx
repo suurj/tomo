@@ -15,11 +15,13 @@ import sys
 # M, Lx and Ly refer to matrices, y to a measurement vector, s2 to sigma squared. Variables a andb are used
 # as regularization parameters.  Logdensity is points to a given log-PDF function  and gradi to its gradient.
 class argumentspack():
-    __slots__ = ['M', 'Lx', 'Ly', 'y', 's2', 'a' ,'b', 'logdensity', 'gradi']
-    def __init__(self,logdensity= lambda x,Q: 1,gradi = lambda x,Q: 0,M=None, Lx=None, Ly=None, y=0, s2=1.0, a=1.0, b=0.01):
+    __slots__ = ['M', 'Lx', 'Ly', 'y', 's2', 'a' ,'b', 'logdensity', 'gradi','boun','boundarya']
+    def __init__(self,logdensity= lambda x,Q: 1,gradi = lambda x,Q: 0,M=None, Lx=None, Ly=None, y=0, s2=1.0, a=1.0, b=0.01,boundarya = 1,boun=None):
         self.M = M
         self.Lx = Lx
         self.Ly = Ly
+        self.boun = boun
+        self.boundarya = boundarya
         self.y = y
         self.s2 = s2
         self.a = a
@@ -39,6 +41,44 @@ def tfun_cauchy( x,Q):
     alpha = Q.a
     return   -0.5/Q.s2*Mxy.T.dot( Mxy) - np.sum(np.log(alpha + np.multiply(Lxx,Lxx))) - np.sum(
         np.log(alpha + np.multiply(Lyx,Lyx))) 
+        
+@cython.cdivision(True)
+@cython.boundscheck(False) 
+@cython.wraparound(False)        
+def tfun_isocauchy( x,Q):
+    x = np.reshape(x, (-1, 1))
+    Mxy = Q.M.dot(x) - Q.y
+    Lxx = Q.Lx.dot(x)
+    Lyx = Q.Ly.dot(x)
+    B = Q.boun.dot(x)
+    alpha = Q.a
+    alphab = Q.boundarya
+    return   -0.5/Q.s2*Mxy.T.dot( Mxy) - 3/2*np.sum(np.log(alpha + np.multiply(Lxx,Lxx) + np.multiply(Lyx,Lyx))) - np.sum(    np.log(alphab + np.multiply(B,B)))
+
+@cython.cdivision(True)
+@cython.boundscheck(False) 
+@cython.wraparound(False)  
+def isocauchy_grad(x,Q):
+    M = Q.M
+    Lx = Q.Lx
+    Lxx = Q.Lx.dot(x)
+    Ly = Q.Ly
+    Lyx = Q.Ly.dot(x)
+    alpha = Q.a
+    B=Q.boun
+    Bx = B.dot(x)
+    s2 = Q.s2
+    y = Q.y
+    alphab = Q.boundarya
+    Mxy = M.dot(x) - y
+    gr =  -1.0 / s2 * (M.T).dot(Mxy)
+    t1 = np.multiply(Lxx,Lxx)
+    t2 = np.multiply(Lyx, Lyx)
+    t3 = np.multiply(Bx,Bx)
+    gr =  np.ravel(gr)  -3/2*np.sum(((2*np.diag(np.ravel(Lxx)))@Lx + (2*np.diag(np.ravel(Lyx)))@Ly)/(alpha+t1+t2),axis=0) - np.sum( (2*np.diag(np.ravel(Bx)))@B/(alphab+t3),axis=0)
+    return gr
+
+              
     
          
 
