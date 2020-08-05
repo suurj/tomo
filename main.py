@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import argparse
 import pathlib
 from tqdm import tqdm
-from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_grad, tfun_tv as ltv, tv_grad, cauchy_grad, \
+from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_grad, tfun_tv as ltv, tv_grad, cauchy_grad, tfun_isocauchy as lisocauchy, isocauchy_grad \
     argumentspack
 
 # Class to store results of one computation.
@@ -373,7 +373,7 @@ class tomography:
     def map_cauchy(self, alpha=0.05, maxiter=400,retim=True):
         res = None
         if not retim:
-            res = container(alpha=alpha,crimefree=self.crimefree,prior='cauchy',method='map',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+            res = container(alpha=alpha,crimefree=self.crimefree,prior='cauchy',method='map',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360,isotropic=False)
         regN = np.diag([1] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1);
         regN = sp.csc_matrix(regN[0:-1, :])
         help = np.zeros((2, self.dim));
@@ -424,6 +424,9 @@ class tomography:
 
     def tfun_cauchy(self, x):
         return -lcauchy(x, self.Q)
+
+    def tfun_isocauchy(self, x):
+        return -lisocauchy(x, self.Q)
 
     def grad_cauchy(self, x):
         x = x.reshape((-1, 1))
@@ -1092,7 +1095,12 @@ if __name__ == "__main__":
         print(haaralpha)
         exit(0)
         '''
+        t = tomography("koe.png", 64, 8, 0.02, crimefree=False)
+        res = t.map_cauchy(1, retim=True)
+        plt.imshow(res)
+        plt.show()
 
+        exit(0)
 
         tikhoalpha = {"sparsestwhole": {512: {0.015: 10.0}}, "sparsewhole": {512: {0.015: 10.0}}, "whole": {512: {0.015: 10.0}}, "sparsestlimited": {512: {0.015: 0.372759372031494}}, "sparselimited": {512: {0.015: 0.7196856730011519}}, "limited": {512: {0.015: 2.6826957952797246}}}
         tvalpha = {"sparsestwhole": {512: {0.015: 0.7196856730011519}}, "sparsewhole": {512: {0.015: 1.3894954943731375}}, "whole": {512: {0.015: 2.6826957952797246}}, "sparsestlimited": {512: {0.015: 0.1}}, "sparselimited": {512: {0.015: 0.372759372031494}}, "limited": {512: {0.015: 0.372759372031494}}}
