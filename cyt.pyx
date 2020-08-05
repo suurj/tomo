@@ -61,26 +61,68 @@ def tfun_isocauchy( x,Q):
 def isocauchy_grad(x,Q):
     M = Q.M
     Lx = Q.Lx
-    Lxx = Q.Lx.dot(x)
     Ly = Q.Ly
-    Lyx = Q.Ly.dot(x)
-    alpha = Q.a
-    B=Q.boun
-    Bx = B.dot(x)
+    a = Q.a
     s2 = Q.s2
     y = Q.y
-    alphab = Q.boundarya
+    B=Q.boun
+    
+    cdef double [:] Lxdata =  Lx.data
+    cdef int [:] Lxindices = Lx.indices
+    cdef int [:] Lxptr = Lx.indptr
+    cdef double [:] Lydata = Ly.data
+    cdef int [:]Lyindices = Ly.indices
+    cdef int [:]Lyptr = Ly.indptr
+    cdef double [:] Bdata = B.data
+    cdef int [:]Bindices = B.indices
+    cdef int [:]Bptr = B.indptr
+    (ro,co) = Ly.shape
+    cdef int row = ro
+    cdef int col = co
+    cdef double alfa = a
+    cdef double alfab = Q.boundarya
+
     Mxy = M.dot(x) - y
-    gr =  -1.0 / s2 * (M.T).dot(Mxy)
-    t1 = np.multiply(Lxx,Lxx)
-    t2 = np.multiply(Lyx, Lyx)
-    t3 = np.multiply(Bx,Bx)
-    gr =  np.ravel(gr)  -3/2*np.sum(((2*np.diag(np.ravel(Lxx)))@Lx + (2*np.diag(np.ravel(Lyx)))@Ly)/(alpha+t1+t2),axis=0) - np.sum( (2*np.diag(np.ravel(Bx)))@B/(alphab+t3),axis=0)
+   
+    cdef double [:,:] Lxx = Lx.dot(x)
+
+    cdef double [:,:] Lyx = Ly.dot(x)
+    
+    cdef double [:,:] Bx  = B.dot(x)
+    
+    # Likelihood part.
+    gr = -1.0/s2  * (M.T).dot(Mxy)
+    cdef double [:,:] grv = gr
+    cdef int i,j
+    cdef double s
+
+
+    # Prior part.
+    for i in prange(col,nogil=True):
+        s = 0
+        for j in range(Lxptr[i],Lxptr[i+1]):
+            s = s - 6/2*Lxx[Lxindices[j],0]/(alfa+Lxx[Lxindices[j],0]*Lxx[Lxindices[j],0] + Lyx[Lxindices[j],0]*Lyx[Lxindices[j],0])*Lxdata[j]
+
+        grv[i,0] = grv[i,0] + s
+
+    for i in prange(col,nogil=True):
+        s = 0
+        for j in range(Lyptr[i], Lyptr[i + 1]):
+            s = s - 6/2 * Lyx[Lyindices[j],0] / (alfa+Lxx[Lxindices[j],0]*Lxx[Lxindices[j],0] + Lyx[Lxindices[j],0]*Lyx[Lxindices[j],0])*Lydata[j]
+
+        grv[i, 0] = grv[i, 0] +   s
+    
+    for i in prange(col,nogil=True):
+        s = 0
+        for j in range(Bptr[i], Bptr[i + 1]):
+            s = s - 2 * Bx[Bindices[j],0] / (alfab+Bx[Bindices[j],0]*Bx[Bindices[j],0])*Bdata[j]
+
+        grv[i, 0] = grv[i, 0] +   s
     return gr
 
               
     
-         
+       
 
 # Logarithm of overall posterior with Total Variation prior and  traditional Gaussian likelihood. S2 is the variance of the likelihood. Alpha is the regularization parameter.
 @cython.cdivision(True)
@@ -1093,3 +1135,5 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10,interstep=
         return np.reshape(cmest,(-1,1)),None
     else:
         return  np.reshape(cmest,(-1,1)),chain
+        
+       

@@ -15,8 +15,7 @@ import matplotlib.pyplot as plt
 import argparse
 import pathlib
 from tqdm import tqdm
-from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_grad, tfun_tv as ltv, tv_grad, cauchy_grad, tfun_isocauchy as lisocauchy, isocauchy_grad \
-    argumentspack
+from cyt import tfun_cauchy as lcauchy, tfun_tikhonov as ltikhonov, tikhonov_grad, tfun_tv as ltv, tv_grad, cauchy_grad, isocauchy_grad, argumentspack
 
 # Class to store results of one computation.
 class container:
@@ -370,47 +369,87 @@ class tomography:
         q = -tv_grad(x, self.Q)
         return np.ravel(q)
 
-    def map_cauchy(self, alpha=0.05, maxiter=400,retim=True):
+    def map_cauchy(self, alpha=0.05, maxiter=400,retim=True,isotropic=False):
         res = None
         if not retim:
-            res = container(alpha=alpha,crimefree=self.crimefree,prior='cauchy',method='map',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360,isotropic=False)
-        regN = np.diag([1] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1);
-        regN = sp.csc_matrix(regN[0:-1, :])
-        help = np.zeros((2, self.dim));
-        help[0, 0] = 1;
-        help[1, self.dim - 1] = 1
-        help2 = np.hstack([np.zeros((self.dim - 2, 1)), np.eye(self.dim - 2), np.zeros((self.dim - 2, 1))])
-        # regvalues = np.array([1, -1, 1])
-        # offsets = np.array([-self.dim + 1, 0, 1])
-        # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        # reg1d = sp.csc_matrix(reg1d)
-        # reg1d[self.dim-1,self.dim-1] = 0
-        # print(np.linalg.matrix_rank(reg1d.todense()))
-        # regx = sp.kron(sp.eye(self.dim), reg1d)
-        # regy = sp.kron(reg1d, sp.eye(self.dim))
-        # regx = sp.csc_matrix(regx)
-        # regy = sp.csc_matrix(regy)
-        regx = sp.kron(sp.eye(self.dim), regN)
-        regy = sp.kron(regN, sp.eye(self.dim))
-        regx = sp.csc_matrix(regx)
-        regy = sp.csc_matrix(regy)
-        regx2 = sp.kron(sp.csc_matrix(help2), sp.csc_matrix(help))
-        regy2 = sp.kron(sp.csc_matrix(help), sp.eye(self.dim))
+            res = container(alpha=alpha,crimefree=self.crimefree,prior='cauchy',method='map',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
+
         self.radonoperator = sp.csc_matrix(self.radonoperator)
         alpha = alpha
-        # combined = sp.vstack([regy, regx], format='csc')
-        combined = sp.vstack([regy, regx, regx2, regy2], format='csc')
-        empty = sp.csc_matrix((1, self.dim * self.dim))
-        self.Q.Lx = combined
-        self.Q.Ly = empty
-        self.Q.a = alpha
-        self.Q.s2 = self.lhsigmsq
-        self.Q.b = 0.01
+        if(isotropic==False):
+            regN = np.diag([1] * self.dim, 0) + np.diag([-1] * (self.dim - 1), 1);
+            regN = sp.csc_matrix(regN[0:-1, :])
+            help = np.zeros((2, self.dim));
+            help[0, 0] = 1;
+            help[1, self.dim - 1] = 1
+            help2 = np.hstack([np.zeros((self.dim - 2, 1)), np.eye(self.dim - 2), np.zeros((self.dim - 2, 1))])
+            # regvalues = np.array([1, -1, 1])
+            # offsets = np.array([-self.dim + 1, 0, 1])
+            # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+            # reg1d = sp.csc_matrix(reg1d)
+            # reg1d[self.dim-1,self.dim-1] = 0
+            # print(np.linalg.matrix_rank(reg1d.todense()))
+            # regx = sp.kron(sp.eye(self.dim), reg1d)
+            # regy = sp.kron(reg1d, sp.eye(self.dim))
+            # regx = sp.csc_matrix(regx)
+            # regy = sp.csc_matrix(regy)
+            regx = sp.kron(sp.eye(self.dim), regN)
+            regy = sp.kron(regN, sp.eye(self.dim))
+            regx = sp.csc_matrix(regx)
+            regy = sp.csc_matrix(regy)
+            regx2 = sp.kron(sp.csc_matrix(help2), sp.csc_matrix(help))
+            regy2 = sp.kron(sp.csc_matrix(help), sp.eye(self.dim))
+            # combined = sp.vstack([regy, regx], format='csc')
+            combined = sp.vstack([regy, regx, regx2, regy2], format='csc')
+            empty = sp.csc_matrix((1, self.dim * self.dim))
+            self.Q.Lx = combined
+            self.Q.Ly = empty
+            self.Q.a = alpha
+            self.Q.s2 = self.lhsigmsq
+            self.Q.b = 0.01
+
+        else:
+            dim = self.dim
+            regvalues = np.array([1, -1, 1])
+            offsets = np.array([-dim + 1, 0, 1])
+            reg1d = sp.diags(regvalues, offsets, shape=(dim, dim))
+            reg1d = sp.csc_matrix(reg1d)
+            reg1d[dim - 1, dim - 1] = 0
+            regx = sp.kron(sp.eye(dim), reg1d)
+            regy = sp.kron(reg1d, sp.eye(dim))
+            regx = sp.csc_matrix(regx)
+            regy = sp.csc_matrix(regy)
+
+            rmxix = np.sum(np.abs(regx), axis=1) == 1
+            rmyix = np.sum(np.abs(regy), axis=1) == 1
+            boundary = rmxix + rmyix
+            regx[np.ravel(boundary), :] = 0
+            regy[np.ravel(boundary), :] = 0
+
+            bmatrix = sp.csc_matrix((dim * dim, dim * dim))
+            q = np.where((np.ravel(boundary) == True))
+            bmatrix[q, q] = 1
+
+            self.Q.Lx = regx
+            self.Q.Ly = regy
+            self.Q.a = alpha
+            self.Q.boundarya = alpha
+            self.Q.s2 = self.lhsigmsq
+            self.Q.b = 0.01
+            self.Q.boun = bmatrix
+
+
+
         x0 = 1 + 0.05 * np.random.randn(self.dim * self.dim, )
         print("Running MAP estimate for Cauchy prior.")
         self.pbar = tqdm(total=np.Inf,file=sys.stdout)
-        solution = minimize(self.tfun_cauchy, x0, method=self.method, jac=self.grad_cauchy,
+
+        if(isotropic==False):
+            solution = minimize(self.tfun_cauchy, x0, method=self.method, jac=self.grad_cauchy,
                             options={'maxiter': maxiter, 'disp': False},callback=self.mincb)
+        else:
+            solution = minimize(self.tfun_isocauchy, x0, method=self.method, jac=self.grad_isocauchy,
+                                options={'maxiter': maxiter, 'disp': False}, callback=self.mincb)
         self.pbar.close()
         iters = solution.nit
         solution = solution.x
@@ -425,13 +464,54 @@ class tomography:
     def tfun_cauchy(self, x):
         return -lcauchy(x, self.Q)
 
-    def tfun_isocauchy(self, x):
-        return -lisocauchy(x, self.Q)
 
     def grad_cauchy(self, x):
         x = x.reshape((-1, 1))
         ans = -cauchy_grad(x, self.Q)
         return (np.ravel(ans))
+
+    def tfun_isocauchy(self,x):
+        x = np.reshape(x, (-1, 1))
+        x = np.reshape(x, (-1, 1))
+        Mxy = self.Q.M.dot(x) - self.Q.y
+        Lxx = self.Q.Lx.dot(x)
+        Lyx = self.Q.Ly.dot(x)
+        B = self.Q.boun.dot(x)
+        alpha = self.Q.a
+        alphab = self.Q.boundarya
+        return -(-0.5 / self.Q.s2 * Mxy.T.dot(Mxy) - 3 / 2 * np.sum(np.log(alpha + np.multiply(Lxx, Lxx) + np.multiply(Lyx, Lyx))) - np.sum(np.log(alphab + np.multiply(B, B))))
+
+    def grad_isocauchy(self,x):
+        x = x.reshape((-1, 1))
+        gr = np.ravel(isocauchy_grad(x,self.Q))
+        q=np.abs(gr+self.grad_isocauchy2(x))
+        print(np.max(q))
+        return -gr
+
+    def grad_isocauchy2(self,x):
+        x = x.reshape((-1, 1))
+        M = self.Q.M
+        Lx = self.Q.Lx
+        Lxx = self.Q.Lx.dot(x)
+        Ly = self.Q.Ly
+        Lyx = self.Q.Ly.dot(x)
+        alpha = self.Q.a
+        B = self.Q.boun
+        Bx = B.dot(x)
+        s2 = self.Q.s2
+        y = self.Q.y
+        alphab = self.Q.boundarya
+        Mxy = M.dot(x) - y
+        gr = np.ravel(-1.0 / s2 * (M.T).dot(Mxy))
+        t1 = alpha + (np.multiply(Lxx, Lxx)) + (np.multiply(Lyx, Lyx))
+        # t2 = (np.multiply(Lyx, Lyx))
+        t2 = alphab + np.multiply(Bx, Bx)
+        a = np.ones((1, Lxx.shape[0]))
+        gr += np.ravel(-3 / 2 * a @ (((2 * sp.diags(np.ravel(Lxx), format='csc')) @ Lx + (
+                    2 * sp.diags(np.ravel(Lyx), format='csc')) @ Ly) / (t1))) + np.ravel(
+            - a @ ((2 * sp.diags(np.ravel(Bx), format='csc')) @ B / (t2)))
+        # gr =  np.ravel(gr)  -3/2*np.sum(((2*sp.diags(np.ravel(Lxx),format='csc'))@Lx + (2*sp.diags(np.ravel(Lyx),format='csc'))@Ly)/(alpha+t1+t2),axis=0) - np.sum( (2*sp.diags(np.ravel(Bx),format='csc'))@B/(alphab+t3),axis=0)
+        return -gr
 
     def map_wavelet(self, alpha=1.0, type='haar', maxiter=400,levels=None ,retim=True):
         res = None
@@ -1095,8 +1175,9 @@ if __name__ == "__main__":
         print(haaralpha)
         exit(0)
         '''
-        t = tomography("koe.png", 64, 8, 0.02, crimefree=False)
-        res = t.map_cauchy(1, retim=True)
+        np.random.seed(1)
+        t = tomography("koe.png", 64, 64, 0.02, crimefree=False)
+        res = t.map_cauchy(0.1, retim=True,isotropic=True)
         plt.imshow(res)
         plt.show()
 
