@@ -108,7 +108,7 @@ def isocauchy_grad(x,Q):
     for i in prange(col,nogil=True):
         s = 0
         for j in range(Lyptr[i], Lyptr[i + 1]):
-            s = s - 6/2 * Lyx[Lyindices[j],0] / (alfa+Lxx[Lxindices[j],0]*Lxx[Lxindices[j],0] + Lyx[Lxindices[j],0]*Lyx[Lxindices[j],0])*Lydata[j]
+            s = s - 6/2 * Lyx[Lyindices[j],0] / (alfa+Lxx[Lxindices[j],0]*Lxx[Lxindices[j],0] + Lyx[Lyindices[j],0]*Lyx[Lyindices[j],0])*Lydata[j]
 
         grv[i, 0] = grv[i, 0] +   s
     

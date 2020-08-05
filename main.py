@@ -369,7 +369,7 @@ class tomography:
         q = -tv_grad(x, self.Q)
         return np.ravel(q)
 
-    def map_cauchy(self, alpha=0.05, maxiter=400,retim=True,isotropic=False):
+    def map_cauchy(self, alpha=0.05, maxiter=400,retim=True,isotropic=True):
         res = None
         if not retim:
             res = container(alpha=alpha,crimefree=self.crimefree,prior='cauchy',method='map',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
@@ -484,10 +484,11 @@ class tomography:
     def grad_isocauchy(self,x):
         x = x.reshape((-1, 1))
         gr = np.ravel(isocauchy_grad(x,self.Q))
-        q=np.abs(gr+self.grad_isocauchy2(x))
-        print(np.max(q))
+        #q=np.abs(gr+self.grad_isocauchy2(x))
+        #print(np.max(q))
         return -gr
 
+    '''
     def grad_isocauchy2(self,x):
         x = x.reshape((-1, 1))
         M = self.Q.M
@@ -512,7 +513,7 @@ class tomography:
             - a @ ((2 * sp.diags(np.ravel(Bx), format='csc')) @ B / (t2)))
         # gr =  np.ravel(gr)  -3/2*np.sum(((2*sp.diags(np.ravel(Lxx),format='csc'))@Lx + (2*sp.diags(np.ravel(Lyx),format='csc'))@Ly)/(alpha+t1+t2),axis=0) - np.sum( (2*sp.diags(np.ravel(Bx),format='csc'))@B/(alphab+t3),axis=0)
         return -gr
-
+    '''
     def map_wavelet(self, alpha=1.0, type='haar', maxiter=400,levels=None ,retim=True):
         res = None
         if (levels is None):
@@ -1176,8 +1177,8 @@ if __name__ == "__main__":
         exit(0)
         '''
         np.random.seed(1)
-        t = tomography("koe.png", 64, 64, 0.02, crimefree=False)
-        res = t.map_cauchy(0.1, retim=True,isotropic=True)
+        t = tomography("koe.png", 128, 32, 0.02, crimefree=False)
+        res = t.map_cauchy(1, retim=True,isotropic=True)
         plt.imshow(res)
         plt.show()
 
