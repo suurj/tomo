@@ -29,6 +29,20 @@ class argumentspack():
         self.logdensity = logdensity
         self.gradi = gradi
 
+def savechain(chain,intername):
+    import h5py
+    import os
+    filename = intername() + ".hdf5"
+    print(filename)
+    path = os.path.dirname(os.path.abspath(filename))
+    if not os.path.exists(path):
+        os.makedirs(path)
+    with h5py.File(filename, 'w') as f:
+        compression = 'gzip'
+        chain = chain.astype(np.float32)
+        f.create_dataset('chain', data=chain, compression=compression)
+    f.close()
+
 # Logarithm of overall posterior with Cauchy difference prior and  traditional Gaussian likelihood. S2 is the variance of the likelihood. Alpha is the constant term in the Cauchy difference prior denominator.
 @cython.cdivision(True)
 @cython.boundscheck(False) 
@@ -121,8 +135,7 @@ def isocauchy_grad(x,Q):
     return gr
 
               
-    
-       
+      
 
 # Logarithm of overall posterior with Total Variation prior and  traditional Gaussian likelihood. S2 is the variance of the likelihood. Alpha is the regularization parameter.
 @cython.cdivision(True)
@@ -747,19 +760,7 @@ def ehmc(M,theta0,Q,Madapt,L=50,delta=0.65,gamma=0.05,t0=10.0,kappa=0.75,cmonly=
     else:
         return cmestimate,None     
        
-def savechain(chain,intername):
-    import h5py
-    import os
-    filename = intername() + ".hdf5"
-    print(filename)
-    path = os.path.dirname(os.path.abspath(filename))
-    if not os.path.exists(path):
-        os.makedirs(path)
-    with h5py.File(filename, 'w') as f:
-        compression = 'gzip'
-        chain = chain.astype(np.float32)
-        f.create_dataset('chain', data=chain, compression=compression)
-    f.close()
+
 
 
 # Metropolis within-Gibbs function for TV prior and Gaussian likelihood.
@@ -952,6 +953,7 @@ def mwg_tv(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10,interstep=1000
     else:
         return  np.reshape(cmest,(-1,1)),chain
 
+
 # Metropolis within-Gibbs function for Cauchy prior and Gaussian likelihood.
 # N is the number of samples, Nadapt is the number of SCAM steps, Q is the extra argument instance, 
 # x0 is the initial parameter vector, sampsigma is the initial proposal step size.
@@ -1135,5 +1137,246 @@ def mwg_cauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10,interstep=
         return np.reshape(cmest,(-1,1)),None
     else:
         return  np.reshape(cmest,(-1,1)),chain
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False) 
+@cython.cdivision(True)
+def mwg_isocauchy(N,Nadapt,Q, x0, sampsigma=1.0,cmonly=False,thinning=10,interstep=100000,intername=time.time()):
+    bar = tqdm(total=N,file=sys.stdout)
+    if (Nadapt >= N):
+        raise Exception('Nadapt <= N.')
+    
+    cdef int adapt = Nadapt
+    cdef int thin = thinning
+    y = Q.y
+    M = Q.M
+    B = Q.boun
+    Lx = Q.Lx
+    Ly = Q.Ly
+    regalpha = Q.a
+    lhvariance = Q.s2
+    samplebeta = Q.b
+    
+    cdef int cm = cmonly
+    dimnumpy = x0.shape[0]
+    cdef int dim = dimnumpy
+    x = x0
+    
+    cdef int istep = interstep
+    
+    if not isinstance(M, sp.csc.csc_matrix):
+        M = csc_matrix(M)
+    
+    if not isinstance(Lx, sp.csc.csc_matrix):
+        Lx = csc_matrix(Lx)
         
+    if not isinstance(Ly, sp.csc.csc_matrix):
+        Ly = csc_matrix(Ly)    
+
+    cdef double alpha = regalpha
+    cdef double alphab = Q.boundarya
+    cdef double samplingsigma = sampsigma
+    cdef double beta = samplebeta
+    cdef double Ci = 1.0/lhvariance
+    
+    cdef double[:] Mdata =  M.data
+    cdef int[:] Mindices =  M.indices
+    cdef int[:] Mptr =  M.indptr
+    
+    cdef double[:] Bdata =  B.data
+    cdef int[:] Bindices =  B.indices
+    cdef int[:] Bptr =  B.indptr
+    
+    cdef double[:] Lxdata =  Lx.data
+    cdef int[:] Lxindices =  Lx.indices
+    cdef int[:] Lxptr =  Lx.indptr
+    
+    cdef double[:] Lydata =  Ly.data
+    cdef int[:] Lyindices =  Ly.indices
+    cdef int[:] Lyptr =  Ly.indptr
+    
+    auxm = csc_matrix(np.abs(Lx) + np.abs(Ly))
+    cdef double[:] Audata = auxm.data
+    cdef int[:] Auindices =  auxm.indices
+    cdef int[:] Auptr =  auxm.indptr
+ 
+   
+    if (cm==0):
+        chain = np.zeros((dim, N//thin+1))
+        chain[:,0] = np.ravel(x)
+    else:
+        chain = np.zeros((dim,1))
+    
+    cdef int acc = 0
+    w = M@x
+    w2 = Lx@x
+    w3 = Ly@x
+    w4 = B@x
+    
+    aw2 = np.copy(w2)
+    aw3 = np.copy(w3)
+   
+    cdef double[:, :] Mx = w
+    cdef double[:, :] Bx = w4
+    cdef double[:, :] Lxx = w2
+    cdef double[:, :] Lyx = w3
+    
+    cdef double[:, :] Axx = aw2
+    cdef double[:, :] Ayx = aw3
+    
+   
+    cdef int i
+    cdef int j
+    cdef double[:, :] xv = x
+    cdef double[:, :] yv = y
+    cdef double new,change, change2, change3, old,currentvalue,currentmean,previousmean,currentvar
+    cdef double[:, :] chainv = chain
+  
+    cdef int k, start, stop
+    cdef double[:] acceptv,number
+    chmean = np.ravel(np.copy(x0))
+    chdev = np.zeros((dim,))
+    cdef double[:] chmeanv = chmean
+    cdef double[:]  chdevv = chdev
+    
+    cmest = np.ravel(np.copy(x))
+    cdef double[:] values = np.ravel(np.copy(x))
+    cdef double[:] cmestimate = cmest
+
+    for i in range(1,N+1):
+        bar.update(1)
+        randoms = np.random.randn(dim,) # 1.0*np.arange(dim,)+1
+        accept = np.random.rand(dim,)
+        acceptv = accept
+        number = randoms
+        #1.542724
+        with nogil:
+            for j in range(0,dim):
+
+                old = values[j]
+                currentvalue = old
+                if  (i> 20):
+                    samplingsigma = 2.38*chdevv[j] + 10**(-9)
+                new = old + samplingsigma*number[j]
+
+
+                change = 0
+                change2 = 1
+                change3 = 1
+                
+                start = Lxptr[j]
+                stop = Lxptr[j+1]
+
+                #for k in prange(start,stop,1):
+                for k in range(start,stop):    
+                    Axx[Lxindices[k],0] = Lxdata[k]*(new-old) + Lxx[Lxindices[k],0] 
+                    
+                start = Lyptr[j]
+                stop = Lyptr[j+1]
+
+                #for k in prange(start,stop,1):
+                for k in range(start,stop):    
+                    Ayx[Lyindices[k],0] = Lydata[k]*(new-old) + Lyx[Lyindices[k],0]     
+
+                start = Mptr[j]
+                stop = Mptr[j+1]
+
+                #for k in prange(start,stop,1):
+                for k in range(start,stop):    
+                    change += -(Mx[Mindices[k],0]- yv[Mindices[k],0])**2.0 + (Mdata[k]*(new-old) + Mx[Mindices[k],0] - yv[Mindices[k],0])**2.0 
+
+                start = Auptr[j]
+                stop = Auptr[j+1]    
+
+                #for k in prange(start,stop,1,nogil=True):
+                for k in range(start,stop):    
+                    change2 *=  (alpha+(Lxx[Auindices[k],0])**2.0 + (Lyx[Auindices[k],0])**2.0)**(3.0/2.0)/(alpha+(Axx[Auindices[k],0])**2.0 + (Ayx[Auindices[k],0])**2.0)**(3.0/2.0)
+
+                start = Bptr[j]
+                stop = Bptr[j+1]    
+
+                #for k in prange(start,stop,1,nogil=True):
+                for k in range(start,stop):    
+                    change3 *= (alphab+(Bx[Bindices[k],0])**2.0) /(alphab+(Bdata[k]*(new-old) + Bx[Bindices[k],0])**2.0)
+
+
+                ratio = exp(-0.5*Ci*change)*change2*change3
+                #print(ratio)
+                
+                if(acceptv[j] <= ratio):
+                    values[j] = new
+                    currentvalue = new
+                    
+                    start = Lxptr[j]
+                    stop = Lxptr[j+1]    
+
+                    #for k in prange(start,stop,1,nogil=True):
+                    for k in range(start,stop):    
+                        Lxx[Lxindices[k],0] = Axx[Lxindices[k],0]# Lxx[Lxindices[k],0] + Lxdata[k]*(new-old)
+
+                    start = Lyptr[j]
+                    stop = Lyptr[j+1]    
+
+                    #for k in prange(start,stop,1,nogil=True):
+                    for k in range(start,stop):    
+                        Lyx[Lyindices[k],0] = Ayx[Lyindices[k],0]# Lyx[Lyindices[k],0] + Lydata[k]*(new-old)    
+
+                    start = Mptr[j]
+                    stop = Mptr[j+1]
+
+                    #for k in prange(start,stop,1):
+                    for k in range(start,stop):     
+                        Mx[Mindices[k],0] = Mx[Mindices[k],0] + Mdata[k]*(new-old)
+                        
+                    start = Bptr[j]
+                    stop = Bptr[j+1]
+
+                    #for k in prange(start,stop,1):
+                    for k in range(start,stop):     
+                        Bx[Bindices[k],0] = Bx[Bindices[k],0] + Bdata[k]*(new-old)    
+
+
+                else:
+                    values[j] = old
+                    
+                    start = Lxptr[j]
+                    stop = Lxptr[j+1]
+
+                    #for k in prange(start,stop,1):
+                    for k in range(start,stop):    
+                        Axx[Lxindices[k],0] =  Lxx[Lxindices[k],0] 
+                        
+                    start = Lyptr[j]
+                    stop = Lyptr[j+1]
+
+                    #for k in prange(start,stop,1):
+                    for k in range(start,stop):    
+                        Ayx[Lyindices[k],0] =  Lyx[Lyindices[k],0]  
+                    
+                    
+                    
+                if ((cm==0) and (i%thin == 0)):
+                    chainv[j,i//thin] = values[j]
+                #else:
+                if(i > adapt):
+                    #cmestimate[j]  = 1.0 / ((i+1)) * ((i) * cmestimate[j] + values[j])
+                    cmestimate[j]  = 1.0 / ((i-adapt)) * ((i-adapt-1) * cmestimate[j] + values[j])
+                
+                if (i <= adapt):
+                    previousmean = chmeanv[j]
+                    currentmean = 1.0/(i+1.0)*(i*previousmean+currentvalue)
+                    chmeanv[j] = currentmean
+                    currentvar = (i-1.0)/(i)*chdevv[j]*chdevv[j]+ 1.0/(i+1.0)*(currentvalue-previousmean)*(currentvalue-previousmean)
+                    chdevv[j] = sqrt(currentvar)
+        
+        #exit(1)            
+        if ((istep>1) and (i%istep == 0)):
+            savechain(chain[:,0:i//thin],intername)            
+                    
+    bar.close()     
+    if(cm):
+        return np.reshape(cmest,(-1,1)),None
+    else:
+        return  np.reshape(cmest,(-1,1)),chain        
        

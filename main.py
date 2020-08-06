@@ -838,49 +838,84 @@ class tomography:
         else:
             return solution
 
-    def mwg_cauchy(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True,interstep=100000):
+    def mwg_cauchy(self, alpha, M=10000, Madapt=1000,mapstart=False,thinning=10,retim=True,interstep=100000,isotropic=True):
         res = None
         if not retim:
             res = container(crimefree=self.crimefree,totaliternum=M,adaptnum=Madapt,alpha=alpha,prior='cauchy',method='mwg',noise=self.noise,imagefilename=self.filename,target=self.targetimage,targetsize=self.dim,globalprefix=self.globalprefix,theta=self.theta/(2*np.pi)*360)
-        from cyt import mwg_cauchy as mwgc
-        regN = np.diag([1]*self.dim,0) + np.diag([-1]*(self.dim-1),1);
-        regN = sp.csc_matrix(regN[0:-1,:])
-        help = np.zeros((2,self.dim)); help[0,0] = 1; help[1,self.dim-1] = 1
-        help2 = np.hstack([np.zeros((self.dim-2,1)),np.eye(self.dim-2),np.zeros((self.dim-2,1))])
-        #regvalues = np.array([1, -1, 1])
-        #offsets = np.array([-self.dim + 1, 0, 1])
-        # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
-        # reg1d = sp.csc_matrix(reg1d)
-        # reg1d[self.dim-1,self.dim-1] = 0
-        # print(np.linalg.matrix_rank(reg1d.todense()))
-        # regx = sp.kron(sp.eye(self.dim), reg1d)
-        # regy = sp.kron(reg1d, sp.eye(self.dim))
-        # regx = sp.csc_matrix(regx)
-        # regy = sp.csc_matrix(regy)
-        regx = sp.kron(sp.eye(self.dim), regN)
-        regy = sp.kron(regN, sp.eye(self.dim))
-        regx = sp.csc_matrix(regx)
-        regy = sp.csc_matrix(regy)
-        regx2 = sp.kron( sp.csc_matrix(help2), sp.csc_matrix(help))
-        regy2 = sp.kron( sp.csc_matrix(help), sp.eye(self.dim))
-        self.radonoperator = sp.csc_matrix(self.radonoperator)
-        alpha = alpha
-        #combined = sp.vstack([regy, regx], format='csc')
-        combined = sp.vstack([regy, regx,regx2,regy2], format='csc')
-        empty = sp.csc_matrix((1, self.dim * self.dim))
-        self.Q.Lx = combined
-        self.Q.Ly = empty
-        self.Q.a = alpha
-        self.Q.s2 = self.lhsigmsq
-        self.Q.b = 0.01
-        self.Q.y = self.lines
+        from cyt import mwg_cauchy as mwgc, mwg_isocauchy as mwgciso
+        if(isotropic==False):
+            regN = np.diag([1]*self.dim,0) + np.diag([-1]*(self.dim-1),1);
+            regN = sp.csc_matrix(regN[0:-1,:])
+            help = np.zeros((2,self.dim)); help[0,0] = 1; help[1,self.dim-1] = 1
+            help2 = np.hstack([np.zeros((self.dim-2,1)),np.eye(self.dim-2),np.zeros((self.dim-2,1))])
+            #regvalues = np.array([1, -1, 1])
+            #offsets = np.array([-self.dim + 1, 0, 1])
+            # reg1d = sp.diags(regvalues, offsets, shape=(self.dim, self.dim))
+            # reg1d = sp.csc_matrix(reg1d)
+            # reg1d[self.dim-1,self.dim-1] = 0
+            # print(np.linalg.matrix_rank(reg1d.todense()))
+            # regx = sp.kron(sp.eye(self.dim), reg1d)
+            # regy = sp.kron(reg1d, sp.eye(self.dim))
+            # regx = sp.csc_matrix(regx)
+            # regy = sp.csc_matrix(regy)
+            regx = sp.kron(sp.eye(self.dim), regN)
+            regy = sp.kron(regN, sp.eye(self.dim))
+            regx = sp.csc_matrix(regx)
+            regy = sp.csc_matrix(regy)
+            regx2 = sp.kron( sp.csc_matrix(help2), sp.csc_matrix(help))
+            regy2 = sp.kron( sp.csc_matrix(help), sp.eye(self.dim))
+            self.radonoperator = sp.csc_matrix(self.radonoperator)
+            alpha = alpha
+            #combined = sp.vstack([regy, regx], format='csc')
+            combined = sp.vstack([regy, regx,regx2,regy2], format='csc')
+            empty = sp.csc_matrix((1, self.dim * self.dim))
+            self.Q.Lx = combined
+            self.Q.Ly = empty
+            self.Q.a = alpha
+            self.Q.s2 = self.lhsigmsq
+            self.Q.b = 0.01
+            self.Q.y = self.lines
+
+        else:
+            dim = self.dim
+            regvalues = np.array([1, -1, 1])
+            offsets = np.array([-dim + 1, 0, 1])
+            reg1d = sp.diags(regvalues, offsets, shape=(dim, dim))
+            reg1d = sp.csc_matrix(reg1d)
+            reg1d[dim - 1, dim - 1] = 0
+            regx = sp.kron(sp.eye(dim), reg1d)
+            regy = sp.kron(reg1d, sp.eye(dim))
+            regx = sp.csc_matrix(regx)
+            regy = sp.csc_matrix(regy)
+
+            rmxix = np.sum(np.abs(regx), axis=1) == 1
+            rmyix = np.sum(np.abs(regy), axis=1) == 1
+            boundary = rmxix + rmyix
+            regx[np.ravel(boundary), :] = 0
+            regy[np.ravel(boundary), :] = 0
+
+            bmatrix = sp.csc_matrix((dim * dim, dim * dim))
+            q = np.where((np.ravel(boundary) == True))
+            bmatrix[q, q] = 1
+
+            self.Q.Lx = regx
+            self.Q.Ly = regy
+            self.Q.a = alpha
+            self.Q.boundarya = alpha
+            self.Q.s2 = self.lhsigmsq
+            self.Q.b = 0.01
+            self.Q.boun = bmatrix
+
         if mapstart:
-            x0 = np.reshape(self.map_cauchy(alpha, maxiter=150), (-1, 1))
+            x0 = np.reshape(self.map_cauchy(alpha, maxiter=400), (-1, 1))
             x0 = x0 + 0.000001 * np.random.rand(self.dim * self.dim, 1)
         else:
             x0 = 0.0 + 0.00*np.random.randn(self.dim * self.dim, 1)
         print("Running MwG MCMC for Cauchy prior.")
-        solution, chain = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim, thinning=thinning,interstep=interstep,intername=res.intermedfilename)
+        if(isotropic):
+            solution, chain = mwgciso(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim, thinning=thinning,interstep=interstep, intername=res.intermedfilename)
+        else:
+            solution, chain = mwgc(M, Madapt, self.Q, x0, sampsigma=1.0, cmonly=retim, thinning=thinning,interstep=interstep,intername=res.intermedfilename)
         solution = np.reshape(solution, (-1, 1))
         solution = np.reshape(solution, (self.dim, self.dim))
         if not retim:
@@ -1077,6 +1112,20 @@ if __name__ == "__main__":
                 return repr(dict(self))
 
 
+        np.random.seed(1)
+        t = tomography("shepp.png", 64, 32, 0.02, crimefree=False)
+        # res = t.map_cauchy(1, retim=True,isotropic=True)
+        res = t.mwg_cauchy(0.1, isotropic=True, mapstart=True, M=10000, Madapt=5000, retim=False, thinning=5,
+                           interstep=1000000)
+        chain = res.chain
+        plt.plot(chain[10, :])
+        plt.plot(chain[100, :])
+        plt.figure()
+        plt.imshow(np.reshape(res.chain[:, -1], (64, 64)))
+        plt.show()
+
+        exit(0)
+
         '''
         angles = {'sparsestwhole': 10, 'sparsewhole': 30, 'whole': 90, 'sparsestlimited': (0, 90, 10),'sparselimited': (0, 90, 30), 'limited': (0, 90, 90)}
         noises = ( 0.015,)
@@ -1175,14 +1224,8 @@ if __name__ == "__main__":
         f.close()
         print(haaralpha)
         exit(0)
-        '''
-        np.random.seed(1)
-        t = tomography("koe.png", 128, 32, 0.02, crimefree=False)
-        res = t.map_cauchy(1, retim=True,isotropic=True)
-        plt.imshow(res)
-        plt.show()
-
-        exit(0)
+        
+       
 
         tikhoalpha = {"sparsestwhole": {512: {0.015: 10.0}}, "sparsewhole": {512: {0.015: 10.0}}, "whole": {512: {0.015: 10.0}}, "sparsestlimited": {512: {0.015: 0.372759372031494}}, "sparselimited": {512: {0.015: 0.7196856730011519}}, "limited": {512: {0.015: 2.6826957952797246}}}
         tvalpha = {"sparsestwhole": {512: {0.015: 0.7196856730011519}}, "sparsewhole": {512: {0.015: 1.3894954943731375}}, "whole": {512: {0.015: 2.6826957952797246}}, "sparsestlimited": {512: {0.015: 0.1}}, "sparselimited": {512: {0.015: 0.372759372031494}}, "limited": {512: {0.015: 0.372759372031494}}}
@@ -1236,7 +1279,7 @@ if __name__ == "__main__":
                         res = t.hmcmc_wavelet(haaralpha[angletype][size][noise], mapstart=True, M=4100, Madapt=100,
                                              retim=False, thinning=1,interstep=100)
                         t.saveresult(res)
-
+        '''
 
                         
 
