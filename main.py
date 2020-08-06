@@ -1113,15 +1113,21 @@ if __name__ == "__main__":
 
 
         np.random.seed(1)
-        t = tomography("shepp.png", 64, 32, 0.02, crimefree=False)
-        # res = t.map_cauchy(1, retim=True,isotropic=True)
-        res = t.mwg_cauchy(0.1, isotropic=True, mapstart=True, M=10000, Madapt=5000, retim=False, thinning=5,
+        t = tomography("shepp.png", 128, 16, 0.02, crimefree=False)
+        res = t.map_cauchy(0.01, retim=True,isotropic=False)
+        plt.imshow(res)
+        plt.show()
+
+        plt.figure()
+
+        t = tomography("shepp.png", 64, 8, 0.02, crimefree=False)
+        res = t.mwg_cauchy(0.1, isotropic=True, mapstart=True, M=10000, Madapt=5000, retim=False, thinning=10,
                            interstep=1000000)
         chain = res.chain
         plt.plot(chain[10, :])
         plt.plot(chain[100, :])
         plt.figure()
-        plt.imshow(np.reshape(res.chain[:, -1], (64, 64)))
+        plt.imshow(np.reshape(res.chain[:, 1], (64, 64)))
         plt.show()
 
         exit(0)
